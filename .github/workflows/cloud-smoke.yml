@@ -1,0 +1,47 @@
+name: Verify ANFLOW public API
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cloud-smoke.yml
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Exercise the production serverless API
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const base='https://anflow-hazel.vercel.app';
+          async function check(path,options,expected,description){
+            let failure;
+            for(let i=0;i<6;i++){
+              try{
+                const response=await fetch(base+path,{
+                  ...options,signal:AbortSignal.timeout(12000),
+                  headers:{'X-VietFlow':'1','Content-Type':'application/json',...(options?.headers||{})}
+                });
+                const raw=await response.text();
+                let data;
+                try{data=JSON.parse(raw);}catch{throw Error('Non-JSON HTTP '+response.status+': '+raw.slice(0,180));}
+                if(response.status!==expected)throw Error('Expected '+expected+' but got '+response.status+' '+JSON.stringify(data).slice(0,180));
+                if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid JSON shape');
+                if(expected===200 && data.ok!==true)throw Error('Health did not return ok:true');
+                if(expected!==200 && typeof data.detail!=='string')throw Error('Missing JSON error detail');
+                console.log('PASS '+description+' (HTTP '+response.status+')');return;
+              }catch(error){
+                failure=error;
+                if(i<5)await new Promise(resolve=>setTimeout(resolve,5000));
+              }
+            }
+            throw Error(description+': '+failure.message);
+          }
+          await check('/api/health',{method:'GET'},200,'Health API');
+          await check('/api/captions',{method:'POST',body:JSON.stringify({video_id:'bad',start:0,duration:120})},400,'Captions API module loads');
+          await check('/api/translate',{method:'POST',body:JSON.stringify({texts:[]})},400,'Translation API module loads');
+          NODE

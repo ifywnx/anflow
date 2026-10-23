@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readPlayerResponse,chooseCaptionTrack,captionUrl,parseCaptionEvents,pairVietnamese} from '../lib/youtube-captions.mjs';
 test('Parse initial player response while ignoring braces in quoted strings',()=>{
-  const html='<script>var ytInitialPlayerResponse = {"x":"has \\" \\{ braces","captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[{"languageCode":"en","baseUrl":"https://www.youtube.com/api/timedtext?v=abc"},{"languageCode":"vi","baseUrl":"https://www.youtube.com/api/timedtext?v=abc&lang=vi"}]}}};</script>';
+  const payload=JSON.stringify({x:'has " { braces',captions:{playerCaptionsTracklistRenderer:{captionTracks:[{languageCode:'en',baseUrl:'https://www.youtube.com/api/timedtext?v=abc'},{languageCode:'vi',baseUrl:'https://www.youtube.com/api/timedtext?v=abc&lang=vi'}]}}});
+  const html='<script>var ytInitialPlayerResponse = '+payload+';</script>';
   const data=readPlayerResponse(html);
   assert.equal(chooseCaptionTrack(data).languageCode,'en');
   const url=new URL(captionUrl(chooseCaptionTrack(data),true));

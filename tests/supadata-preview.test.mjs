@@ -38,7 +38,7 @@ test('Supadata jobs can be polled without creating new billable transcripts',asy
 test('Preview endpoint refuses unrelated videos before fetching',async()=>{
   const res=fakeResponse();
   await endpoint({method:'GET',query:{video_id:'dQw4w9WgXcQ'}},res);
-  assert.equal(res.statusCode,403);assert.equal(typeof res.body.detail,'string');
+  assert.equal(res.statusCode,401);assert.equal(res.body.owner_access_required,true);
 });
 test('API handles missing provider key safely',async()=>{
   const saved=process.env.SUPADATA_API_KEY;delete process.env.SUPADATA_API_KEY;
@@ -58,4 +58,23 @@ test('Polling arbitrary Supadata jobs requires a signature',async()=>{
   const res=fakeResponse();
   await endpoint({method:'GET',query:{video_id:TRIAL_VIDEO_ID,job_id:'arbitrarytask'}},res);
   assert.equal(res.statusCode,403);
+});
+
+test('Public sample videos are the verified Ed Sheeran and Passenger clips',async()=>{
+  const {publicVideo}=await import('../lib/transcript-access.mjs');
+  assert.equal(publicVideo(TRIAL_VIDEO_ID),true);
+  assert.equal(publicVideo('RBumgq5yVrA'),true);
+  assert.equal(publicVideo('dQw4w9WgXcQ'),false);
+});
+test('Supadata can normalize a transcript from Passenger, without AI generation',async()=>{
+  const result=await getTranscript({
+    key:'sample-key',videoId:'RBumgq5yVrA',
+    fetchFn:async url=>{
+      assert.equal(url.searchParams.get('mode'),'native');
+      assert.equal(url.searchParams.get('url'),'https://www.youtube.com/watch?v=RBumgq5yVrA');
+      return {ok:true,status:200,json:async()=>({lang:'en',content:[{offset:5000,duration:1700,text:'Sample dialogue'}]})};
+    },
+  });
+  assert.equal(result.cues.length,1);
+  assert.equal(result.cues[0].start,5);
 });

@@ -44,4 +44,10 @@ jobs:
           await check('/api/health',{method:'GET'},200,'Health API');
           await check('/api/captions',{method:'POST',body:JSON.stringify({video_id:'bad',start:0,duration:120})},400,'Captions API module loads');
           await check('/api/translate',{method:'POST',body:JSON.stringify({texts:[]})},400,'Translation API module loads');
+          const dub=await fetch(base+'/api/dubbing',{signal:AbortSignal.timeout(12000)});
+          const dubData=await dub.json();
+          if(dub.status!==200||typeof dubData.elevenlabs_ready!=='boolean'||dubData.access_required!==true)
+            throw Error('Dubbing API status check failed: HTTP '+dub.status);
+          console.log('PASS Dubbing API loaded; ElevenLabs configured: '+dubData.elevenlabs_ready);
+
           NODE

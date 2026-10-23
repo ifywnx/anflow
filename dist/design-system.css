@@ -351,3 +351,11 @@ body.focus-mode .player-options{max-height:70vh;overflow-y:auto}
 #elevenAccessWrap input{width:100%;border:1px solid var(--vf-border);background:var(--vf-surface);color:var(--vf-ink);border-radius:9px;padding:10px;font-size:12px}
 :root[data-theme="dark"] .quick-video-controls .quick-dub:not(.active){background:#2a3762;color:#e5e8ff;border-color:#56659a}
 @media(max-width:720px){.quick-video-controls .quick-dub{width:100%}.dub-live-status{flex-basis:100%}}
+
+/* Quick voice selector directly alongside the dubbing toggle */
+.quick-video-controls .quick-voice-field{display:flex;align-items:center;gap:9px;min-width:180px;flex:1 1 215px;max-width:380px}
+.quick-voice-field>span{font-size:11px;font-weight:650;color:var(--vf-muted);white-space:nowrap}
+.quick-voice-field select{min-width:0;flex:1 1 auto;padding:10px 12px;border-radius:11px;border:1px solid var(--vf-border);background:var(--vf-surface);color:var(--vf-ink);font-size:12px;cursor:pointer;max-width:100%}
+.quick-voice-field select:disabled{cursor:not-allowed;opacity:.7}
+.quick-voice-field select:focus-visible{outline:2px solid var(--vf-indigo);outline-offset:2px}
+@media(max-width:720px){.quick-video-controls .quick-voice-field{width:100%;max-width:none;flex:1 1 100%}.quick-voice-field select{width:100%}}

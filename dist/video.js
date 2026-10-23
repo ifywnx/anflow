@@ -320,8 +320,17 @@ if(cloudPreview && result.cues.some(c=>!c.translation)){
     try{
       if(automatic)setAutoStatus('Đang dịch tiếng Việt '+Math.min(i+10,pending.length)+'/'+pending.length+' câu…','working');
       const data=await localRequest('/api/translate',{texts:batch.map(c=>c.original)},controller.signal);
+      const visibleIndex=playerReady?cueAt(v.cues,player.getCurrentTime()-(v.offset||0)):-1;
+      const visibleCue=v.cues[visibleIndex];
+      const shouldSpeakNewTranslation=!!(voiceOn&&playing&&visibleCue&&!visibleCue.translation&&batch.includes(visibleCue));
       batch.forEach((c,j)=>{if(data.translations?.[j])c.translation=data.translations[j];});
-      if(active===v){save();renderTranscript();const i=playerReady?cueAt(v.cues,player.getCurrentTime()-(v.offset||0)):-1;showCaption(i>=0?v.cues[i]:null);if(voiceOn&&playing){currentCue=-2;tick();}}
+      if(active===v){
+        const priorIndex=currentCue;
+        save();renderTranscript();
+        showCaption(visibleIndex>=0?v.cues[visibleIndex]:null);
+        if(shouldSpeakNewTranslation){currentCue=-2;tick();}
+        else currentCue=priorIndex; // avoid restarting current spoken audio on unrelated translated chunks
+      }
     }catch(e){if(e.name==='AbortError')break;message('Dịch tự động bị giới hạn. Phụ đề gốc vẫn sử dụng được.');break;}
   }
   if(automatic&&active===v)setAutoStatus(result.cues.some(c=>c.translation)?'Phụ đề tiếng Việt đã sẵn sàng.':'Đã có phụ đề gốc, nhưng chưa dịch được toàn bộ sang tiếng Việt.','done');

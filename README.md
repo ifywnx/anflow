@@ -1,4 +1,16 @@
-# VietFlow Local — không cần Gemini để lấy phụ đề, dịch và đọc
+# VietFlow — Local và bản xem thử Vercel
+
+## ANFLOW online trên Vercel
+
+Vercel triển khai phần giao diện từ thư mục `dist`, cùng API dịch văn bản giới hạn. Đây là **bản xem thử công khai**, không phải backend Whisper đầy đủ.
+
+- Có thể: phát video YouTube được phép nhúng, nhập/dán SRT/VTT, dịch phụ đề theo lô bằng endpoint công khai (có thể bị giới hạn), chọn chế độ phụ đề, chỉnh kích cỡ, lưu từ vựng, đánh dấu video, JSON/CSV export/import, Gemini hỏi đáp bằng key nhập trên trình duyệt.
+- Chưa có trên Vercel: lấy phụ đề YouTube tự động, tải audio và chạy Whisper, upload media lên server, ElevenLabs và cache MP3.
+- Dữ liệu học tập lưu trên từng trình duyệt; **không đồng bộ** giữa Mac, điện thoại và các tên miền khác nhau. Sao lưu JSON nếu cần.
+- `vercel.json` cố định `dist` làm output, không cài các dependency Python/Whisper nặng; `api/health.js` và `api/translate.js` là endpoint serverless nhẹ.
+- Bảo mật: không đưa khóa ElevenLabs lên Vercel; Gemini API key là khóa do người dùng tự nhập trong trình duyệt, không nên dùng khóa có hạn mức lớn trên website công khai. Translation API chỉ giới hạn tải ở mỗi request, chưa có rate limit toàn cục; cần bổ sung auth/rate limiting nếu mở cho nhiều người.
+
+## VietFlow Local — đầy đủ Whisper và ElevenLabs
 
 ## Mở ứng dụng
 

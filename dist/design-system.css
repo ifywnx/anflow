@@ -268,3 +268,10 @@ body.focus-mode .player-options{max-height:70vh;overflow-y:auto}
  .caption-prefs{gap:9px}
  .caption-prefs select{font-size:11px}
 }
+
+/* Public Vercel preview: transparent feature availability before a request fails. */
+.cloud-banner{display:flex;align-items:flex-start;flex-wrap:wrap;gap:7px 15px;border-radius:15px;border:1px solid #bbc8f9;background:linear-gradient(115deg,#edf2ff,#f4faff);padding:14px 18px;margin:14px 0 18px;line-height:1.7;color:#384785;font-size:12px}
+.cloud-banner strong{font-size:11px;letter-spacing:.5px;white-space:nowrap}
+.cloud-banner span{flex:1;min-width:200px}
+.cloud-banner[hidden]{display:none}
+:root[data-theme="dark"] .cloud-banner{background:linear-gradient(115deg,#26365a,#243b49);border-color:#4d608b;color:#dce7ff}

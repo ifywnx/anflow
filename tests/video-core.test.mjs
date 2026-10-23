@@ -64,8 +64,8 @@ test('Prefetch starts with 85 seconds lead and never repeats prepared windows',(
   assert.equal(nextCaptionWindow(30,465,[[0,120]]),null);
   assert.equal(nextCaptionWindow(35,465,[[0,120]]),120);
   assert.equal(nextCaptionWindow(84,465,[[0,120],[120,240]]),null);
-  assert.equal(nextCaptionWindow(158,465,[[0,120],[120,240]]),null);
-  assert.equal(nextCaptionWindow(159,465,[[0,120],[120,240]]),240);
+  assert.equal(nextCaptionWindow(154,465,[[0,120],[120,240]]),null);
+  assert.equal(nextCaptionWindow(155,465,[[0,120],[120,240]]),240);
 });
 test('Prefetch bounds last partial window and invalid playback values',()=>{
   assert.equal(nextCaptionWindow(115,119,[[0,119]]),null);

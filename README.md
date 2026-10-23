@@ -1,11 +1,20 @@
 # VietFlow — Local và bản xem thử Vercel
 
+## ANFLOW bản dán link là xem — V1.5
+
+- Chỉ cần **dán URL YouTube** vào ô chính (tự nhận link dán), ANFLOW mở video và thử phát luôn; nếu trình duyệt chặn autoplay có tiếng, bấm nút Play của YouTube.
+- Tự lấy phụ đề video ngay khi mở, không đợi bấm phát, tự ưu tiên dịch sang tiếng Việt. Trên bản cloud, Vercel sử dụng API `/api/captions` để thử đọc caption track YouTube, có thể bị YouTube chặn hoặc video không có phụ đề. Khi không lấy được, video **vẫn xem được**, giao diện báo lỗi và hiện nút nhập SRT/VTT.
+- Chỉ để các thao tác thường dùng (ngôn ngữ phụ đề, thử lại) ở cạnh video; các cài đặt giọng đọc, Whisper, tải file, căn chỉnh nằm trong **Tùy chỉnh nâng cao**.
+- Dịch cloud thực hiện theo các đợt 10 câu với API dịch miễn phí; có thể bị hạn chế, không phải dịch vụ bảo đảm. Không có lời thoại thì không thể đảm bảo tự dịch mọi video.
+- Cảnh báo: xem video và tự phát phụ thuộc quyền nhúng video và chính sách autoplay của trình duyệt; không thể tự phát có âm thanh trong mọi trình duyệt.
+- Sổ từ, dấu mốc, nhập SRT/VTT, xuất file và backend local được giữ nguyên.
+
 ## ANFLOW online trên Vercel
 
 Vercel triển khai phần giao diện từ thư mục `dist`, cùng API dịch văn bản giới hạn. Đây là **bản xem thử công khai**, không phải backend Whisper đầy đủ.
 
-- Có thể: phát video YouTube được phép nhúng, nhập/dán SRT/VTT, dịch phụ đề theo lô bằng endpoint công khai (có thể bị giới hạn), chọn chế độ phụ đề, chỉnh kích cỡ, lưu từ vựng, đánh dấu video, JSON/CSV export/import, Gemini hỏi đáp bằng key nhập trên trình duyệt.
-- Chưa có trên Vercel: lấy phụ đề YouTube tự động, tải audio và chạy Whisper, upload media lên server, ElevenLabs và cache MP3.
+- Có thể: phát video YouTube được phép nhúng, **thử tự lấy phụ đề track công khai theo từng đoạn**, nhập/dán SRT/VTT, dịch phụ đề theo lô bằng endpoint công khai (có thể bị giới hạn), chọn chế độ phụ đề, chỉnh kích cỡ, lưu từ vựng, đánh dấu video, JSON/CSV export/import, Gemini hỏi đáp bằng key nhập trên trình duyệt.
+- Chưa có trên Vercel: tải audio và chạy Whisper, upload media lên server, ElevenLabs và cache MP3. API lấy phụ đề YouTube trên Vercel hoạt động theo mức độ truy cập được track YouTube; có thể không thành công.
 - Dữ liệu học tập lưu trên từng trình duyệt; **không đồng bộ** giữa Mac, điện thoại và các tên miền khác nhau. Sao lưu JSON nếu cần.
 - `vercel.json` cố định `dist` làm output, không cài các dependency Python/Whisper nặng; `api/health.js` và `api/translate.js` là endpoint serverless nhẹ.
 - Bảo mật: không đưa khóa ElevenLabs lên Vercel; Gemini API key là khóa do người dùng tự nhập trong trình duyệt, không nên dùng khóa có hạn mức lớn trên website công khai. Translation API chỉ giới hạn tải ở mỗi request, chưa có rate limit toàn cục; cần bổ sung auth/rate limiting nếu mở cho nhiều người.

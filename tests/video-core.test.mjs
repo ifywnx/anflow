@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {videoId,timestamp,parseSubtitles,normalizeGenerated,cueAt,mergeRange,mergeRangeKeepingEdits,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup,nextCaptionWindow,srt,timeLabel} from '../dist/video-core.mjs';
+import {videoId,timestamp,parseSubtitles,normalizeGenerated,cueAt,mergeRange,mergeRangeKeepingEdits,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup,nextCaptionWindow,readApiResponse,srt,timeLabel} from '../dist/video-core.mjs';
 test('YouTube links: exact hosts, no spoofing or injected schemes',()=>{for(const url of ['https://youtu.be/lfmg-EJ8gm4?si=x','https://www.youtube.com/watch?v=lfmg-EJ8gm4&t=31','https://m.youtube.com/shorts/lfmg-EJ8gm4','https://youtube.com/live/lfmg-EJ8gm4'])assert.equal(videoId(url),'lfmg-EJ8gm4');for(const url of ['https://youtube.com.attacker.test/watch?v=lfmg-EJ8gm4','javascript:alert(1)','https://example.com/lfmg-EJ8gm4','https://youtube.com/watch?v=bad'])assert.equal(videoId(url),null);});
 test('SRT BOM, CRLF, multiline and markup handled',()=>{const cues=parseSubtitles('\uFEFF1\r\n00:00:01,250 --> 00:00:04,000\r\nHello <i>world</i>\r\nSecond line\r\n\r\n2\r\n01:02:03,000 --> 01:02:05,500\r\nLong video');assert.equal(cues[0].start,1.25);assert.equal(cues[0].original,'Hello world\nSecond line');assert.equal(cues[1].start,3723);assert.equal(timeLabel(3723),'1:02:03');});
 test('WebVTT settings and NOTE blocks',()=>{const cues=parseSubtitles('WEBVTT\n\nNOTE note\nignore\n\ncue-a\n00:09.000 --> 00:15.000 align:start\nHello &amp; welcome');assert.deepEqual(cues,[{start:9,end:15,original:'Hello & welcome',translation:''}]);assert.throws(()=>parseSubtitles('no timing'));});
@@ -78,4 +78,20 @@ test('Playback scheduler handles window seeking and does not request past the vi
   assert.equal(nextCaptionWindow(395,400,[[0,120],[120,240],[240,360]]),360);
   assert.equal(nextCaptionWindow(399,400,[[0,120],[120,240],[240,360],[360,400]]),null);
   assert.equal(nextCaptionWindow(-4,400,[]),0);
+});
+
+test('Read API success JSON payload',async()=>{
+  const obj=await readApiResponse(new Response(JSON.stringify({cues:[],source:'youtube'}),{status:200,headers:{'content-type':'application/json'}}));
+  assert.equal(obj.source,'youtube');
+});
+test('A Vercel FUNCTION_INVOCATION_FAILED plain text response produces a Vietnamese error',async()=>{
+  const r=new Response('A server error has occurred\nFUNCTION_INVOCATION_FAILED',{status:500,headers:{'content-type':'text/plain'}});
+  await assert.rejects(readApiResponse(r),err=>err.message.includes('Máy chủ')&&err.message.includes('HTTP 500')&&!err.message.includes('Unexpected token'));
+});
+test('API honors useful JSON details on expected errors',async()=>{
+  const r=new Response(JSON.stringify({detail:'YouTube không cung cấp phụ đề trong video này.'}),{status:502});
+  await assert.rejects(readApiResponse(r),/YouTube không cung cấp phụ đề/);
+});
+test('API detects unexpected non-object payloads',async()=>{
+  await assert.rejects(readApiResponse(new Response('"bad"',{status:200})),/không hợp lệ/);
 });

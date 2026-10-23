@@ -1,0 +1,10 @@
+{
+  "name": "anflow-vercel",
+  "version": "1.5.2",
+  "private": true,
+  "type": "module",
+  "description": "ANFLOW static viewer and lightweight Vercel API functions",
+  "engines": {
+    "node": ">=20"
+  }
+}

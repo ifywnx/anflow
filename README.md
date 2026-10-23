@@ -1,5 +1,13 @@
 # ANFLOW — Local và bản xem thử Vercel
 
+## Sửa lỗi API Vercel trả chữ thường thay vì JSON
+
+- Các hàm `api/*.js` sử dụng ES Modules, vì vậy `package.json` khai báo `"type": "module"` theo tài liệu runtime của Vercel. Không cần API key để **gọi endpoint**, nhưng YouTube có thể chặn việc trích xuất caption từ cloud.
+- Thay vì luôn gọi `response.json()`, trình duyệt kiểm tra phản hồi và trả thông báo dễ hiểu khi Vercel gặp lỗi 500 `FUNCTION_INVOCATION_FAILED`.
+- Test chạy trực tiếp cả ba serverless API handler và phản hồi lỗi; không gửi request thật tới YouTube trong unit test.
+- Khi API đã khởi chạy, YouTube vẫn có thể từ chối cung cấp phụ đề; đó là hạn chế khác với lỗi cấu hình Vercel.
+
+
 ## V1.5.1 — xử lý trường hợp YouTube có CC nhưng ANFLOW chưa dịch
 
 - Khi chưa lấy được transcript riêng, không hiển thị một dải phụ đề ANFLOW rỗng phủ dưới video. Phụ đề **CC trực tiếp từ YouTube** được bật ưu tiên (nếu chủ video cho phép); `cc_lang_pref=vi` chỉ là lựa chọn ưu tiên, không bảo đảm YouTube dịch tự động.

@@ -84,3 +84,24 @@ export function nextCaptionWindow(seconds,duration,ranges,{windowSize=120,leadSe
   if(upcoming<duration&&upcoming-at<=leadSeconds&&!covered(upcoming))return upcoming;
   return null;
 }
+
+/**
+ * Decode Vercel API responses defensively: the platform may send plain-text
+ * "A server error has occurred" on function startup errors, not JSON.
+ * Avoid leaking internal stack traces and show an actionable error instead.
+ */
+export async function readApiResponse(response){
+  const raw=await response.text();
+  let data;
+  try{data=JSON.parse(raw);}
+  catch{
+    if(response.status>=500)throw Error('Máy chủ xử lý phụ đề đang lỗi (HTTP '+response.status+'). Đây là lỗi máy chủ, không phải thiếu API key. Thử lại sau.');
+    if(!response.ok)throw Error('Không thể kết nối dịch vụ (HTTP '+response.status+').');
+    throw Error('Máy chủ trả dữ liệu không hợp lệ. Thử tải lại trang.');
+  }
+  if(!data||typeof data!=='object'||Array.isArray(data))
+    throw Error('Máy chủ trả dữ liệu không hợp lệ.');
+  if(!response.ok)
+    throw Error(typeof data.detail==='string'?data.detail:typeof data.error==='string'?data.error:'Dịch vụ đang lỗi (HTTP '+response.status+').');
+  return data;
+}

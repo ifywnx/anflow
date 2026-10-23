@@ -2,8 +2,9 @@ import {videoId,timeLabel,parseSubtitles,normalizeGenerated,cueAt,mergeRangeKeep
 import {upcomingDubbingCues,shouldPlayDub,voiceRate} from './dub-sync.mjs';
 const $=id=>document.getElementById(id),STORE='vietflow.videos.v1';
 const cloudPreview=location.hostname.endsWith('.vercel.app');
-const cloudMessage='YouTube có thể không cấp phụ đề qua Vercel; ANFLOW đang thử Supadata với một video kiểm chứng. Whisper và ElevenLabs vẫn chỉ có trên bản Mac.';
+const cloudMessage='ANFLOW dùng Supadata để lấy phụ đề có sẵn, rồi dịch sang tiếng Việt. Một số video không cung cấp phụ đề; Whisper chỉ có trong bản Mac.';
 const SUPADATA_TRIAL_VIDEO_ID='JGwWNGJdvx8';
+const PASSENGER_VIDEO_ID='RBumgq5yVrA';
 const DUB_PREF='anflow.auto-dubbing.v1';
 const NATIVE_VOICE_PREF='anflow.preferred-native-voice.v1';
 function preferredNativeVoice(){try{return localStorage.getItem(NATIVE_VOICE_PREF)||'';}catch{return '';}}
@@ -11,11 +12,13 @@ function rememberNativeVoice(value){try{localStorage.setItem(NATIVE_VOICE_PREF,v
 let paidDubbingReady=false,paidAccessCode='',lastSpeechPrefetch=0,pendingAutoDubbing=false;
 let autoDubbingEnabled=cloudPreview;
 try{const value=localStorage.getItem(DUB_PREF);if(value==='off')autoDubbingEnabled=false;if(value==='on')autoDubbingEnabled=true;}catch{}
-function dubStatus(value){$('dubLiveStatus').textContent=value;$('ttsStatus').textContent=value;}
+function dubStatus(value){$('dubLiveStatus').textContent=value;$('ttsStatus').textContent=value;syncDubButtons();}
 function syncDubButtons(){
+  const hasTranslation=Boolean(active?.cues?.some(c=>typeof c.translation==='string'&&c.translation.trim()));
   $('quickDub').setAttribute('aria-pressed',String(voiceOn));
-  $('quickDub').classList.toggle('active',voiceOn);
-  $('quickDub').textContent=voiceOn?'Đang lồng tiếng Việt':'Bật lồng tiếng Việt';
+  $('quickDub').classList.toggle('active',voiceOn&&hasTranslation);
+  $('quickDub').classList.toggle('waiting',voiceOn&&!hasTranslation);
+  $('quickDub').textContent=!voiceOn?'Bật lồng tiếng Việt':!hasTranslation?'Đang chờ bản dịch…':playing?'Đã bật lồng tiếng Việt':'Sẵn sàng lồng tiếng Việt';
   $('dubbing').checked=voiceOn;
 }
 let library={};try{const stored=JSON.parse(localStorage.getItem(STORE)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))for(const [id,v] of Object.entries(stored)){if(/^[\w-]{11}$/.test(id)&&v&&Array.isArray(v.cues)&&typeof v.title==='string')library[id]={...v,cues:v.cues.filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&typeof c.original==='string'&&typeof c.translation==='string').sort((a,b)=>a.start-b.start),seen:Array.isArray(v.seen)?v.seen:[],ranges:Array.isArray(v.ranges)?v.ranges:[],chat:Array.isArray(v.chat)?v.chat:[],words:Array.isArray(v.words)?v.words.filter(w=>w&&typeof w.word==='string'&&typeof w.meaning==='string'&&Number.isFinite(w.start)).slice(0,500):[],bookmarks:Array.isArray(v.bookmarks)?v.bookmarks.filter(b=>b&&Number.isFinite(b.start)&&typeof b.label==='string').slice(0,300):[]};}}catch{}
@@ -61,6 +64,7 @@ function syncCaptionAvailability(){
   $('subtitleModes').hidden=!exists;
   $('nativeCaptionHint').hidden=exists;
   if(!exists)$('captionStrip').hidden=true;
+  syncDubButtons();
 }
 
 function rememberView(){try{localStorage.setItem(VIEW_PREFS,JSON.stringify(viewPrefs));}catch{}}
@@ -224,11 +228,11 @@ async function speak(cue){
   utterance.onerror=()=>{if(token===speechEpoch)restoreVolume();};
   window.speechSynthesis.speak(utterance);
 }
-async function open(id){const token=++generation;workController?.abort();workController=null;workVideo=null;$('autoPrepare').checked=viewPrefs.autoPrepare;setBusy(false);progress('');stopVoice();voiceOn=false;syncDubButtons();playing=false;playerReady=false;currentCue=-1;lastTime=0;if(player){try{player.destroy();}catch{}}player=null;failedAutoWindows.clear();const v=library[id]||{id,title:'YouTube · '+id,cues:[],ranges:[],seen:[],chat:[],words:[],bookmarks:[],offset:0,source:'ai'};active=v;library[id]=v;v.words??=[];v.bookmarks??=[];v.updated=Date.now();wordContext=null;editContext=null;selectedCueStart=null;for(const dialog of ['wordDialog','cueEditDialog'])if($(dialog)?.open)$(dialog).close();quote='';selectedText='';$('selectionBar').hidden=true;$('youtubeUrl').value='https://www.youtube.com/watch?v='+id;$('videoTitle').textContent=v.title;$('offset').value=v.offset||0;$('playerStatus').textContent='● Đang tải video';$('captionPrimary').textContent='Đang tải trình phát…';$('captionSecondary').hidden=true;$('playTime').textContent='00:00 / 00:00';$('quickImport').hidden=true;$('playerHost').replaceChildren();syncCaptionAvailability();syncLearningView();const mount=document.createElement('div');mount.id='youtubePlayer';$('playerHost').append(mount);renderTranscript();renderStudy();history();save();message('');
+async function open(id){const token=++generation;workController?.abort();workController=null;workVideo=null;$('autoPrepare').checked=viewPrefs.autoPrepare;setBusy(false);progress('');stopVoice();voiceOn=false;syncDubButtons();playing=false;playerReady=false;currentCue=-1;lastTime=0;if(player){try{player.destroy();}catch{}}player=null;failedAutoWindows.clear();const v=library[id]||{id,title:'YouTube · '+id,cues:[],ranges:[],seen:[],chat:[],words:[],bookmarks:[],offset:0,source:'ai'};active=v;library[id]=v;v.words??=[];v.bookmarks??=[];v.updated=Date.now();wordContext=null;editContext=null;selectedCueStart=null;for(const dialog of ['wordDialog','cueEditDialog'])if($(dialog)?.open)$(dialog).close();quote='';selectedText='';$('selectionBar').hidden=true;$('youtubeUrl').value='https://www.youtube.com/watch?v='+id;$('videoTitle').textContent=v.title;$('offset').value=v.offset||0;$('playerStatus').textContent='● Đang tải video';$('captionPrimary').textContent='Đang tải trình phát…';$('captionSecondary').hidden=true;$('playTime').textContent='00:00 / 00:00';$('quickImport').hidden=true;$('transcriptUnlock').hidden=true;$('playerHost').replaceChildren();syncCaptionAvailability();syncLearningView();const mount=document.createElement('div');mount.id='youtubePlayer';$('playerHost').append(mount);renderTranscript();renderStudy();history();save();message('');
 if(autoDubbingEnabled){pendingAutoDubbing=true;setVoice(true);}
 if(viewPrefs.autoPrepare&&v.source!=='import'&&!v.ranges.some(r=>r[0]<=0&&r[1]>=119))generate(0,true);
 try{await loadAPI();if(token!==generation)return;player=new YT.Player('youtubePlayer',{width:'100%',height:'100%',videoId:id,playerVars:{playsinline:1,autoplay:1,cc_load_policy:1,cc_lang_pref:'vi',hl:'vi',origin:location.origin,rel:0},events:{onReady:e=>{if(token!==generation)return;playerReady=true;if(!workController&&$('autoStatus').dataset.state!=='error')setAutoStatus('Video đã mở. Nếu thấy CC, đó là phụ đề YouTube; ANFLOW đang thử lấy bản dịch.');const info=e.target.getVideoData();if(info.title){v.title=info.title;$('videoTitle').textContent=info.title;history();save();}$('playerStatus').textContent='● Sẵn sàng phát';$('captionPrimary').textContent=v.cues.length?'Phụ đề đã sẵn sàng.':'';syncCaptionAvailability();
-try{e.target.playVideo();}catch{}tick();},onStateChange:e=>{if(token!==generation)return;playing=e.data===YT.PlayerState.PLAYING;$('playerStatus').textContent=playing?'● Đang phát':e.data===YT.PlayerState.BUFFERING?'● Đang tải':'● Đã tạm dừng';if(!playing)stopVoice();else currentCue=-1;tick();},onError:e=>{if(token!==generation)return;playing=false;stopVoice();const errors={2:'Link video không hợp lệ.',5:'Trình duyệt không phát được video này.',100:'Video không tồn tại hoặc không công khai.',101:'Chủ video không cho phép nhúng.',150:'Chủ video không cho phép nhúng.',153:'YouTube từ chối môi trường nhúng này. Hãy mở VietFlow bằng Chrome/Edge.'};message(errors[e.data]||'Không phát được YouTube. Mã lỗi '+e.data);$('playerStatus').textContent='● Không phát được video';}}});}catch(e){if(token===generation)message(e.message);}}
+try{e.target.playVideo();}catch{}tick();},onStateChange:e=>{if(token!==generation)return;playing=e.data===YT.PlayerState.PLAYING;syncDubButtons();$('playerStatus').textContent=playing?'● Đang phát':e.data===YT.PlayerState.BUFFERING?'● Đang tải':'● Đã tạm dừng';if(!playing)stopVoice();else currentCue=-1;tick();},onError:e=>{if(token!==generation)return;playing=false;stopVoice();const errors={2:'Link video không hợp lệ.',5:'Trình duyệt không phát được video này.',100:'Video không tồn tại hoặc không công khai.',101:'Chủ video không cho phép nhúng.',150:'Chủ video không cho phép nhúng.',153:'YouTube từ chối môi trường nhúng này. Hãy mở VietFlow bằng Chrome/Edge.'};message(errors[e.data]||'Không phát được YouTube. Mã lỗi '+e.data);$('playerStatus').textContent='● Không phát được video';}}});}catch(e){if(token===generation)message(e.message);}}
 function setBusy(b){['generate','translateImported','importButton','pasteSubtitles','uploadMedia'].forEach(id=>$(id).disabled=b);}
 function updateCounts(){const n=active?.cues.length||0;$('cueCount').textContent=n?n.toLocaleString('vi-VN')+' câu phụ đề':'Chưa có phụ đề';$('transcriptCount').textContent=n.toLocaleString('vi-VN')+' câu';$('captionOrigin').textContent=n?(active.source==='import'?'Phụ đề từ file đã nhập':active.source==='whisper'?'Whisper chạy trên máy · mốc ước lượng':'Phụ đề YouTube · '+active.source):'Chưa có phụ đề';}
 function applyTranscriptFilters(){
@@ -315,7 +319,9 @@ let localJob=null;
 async function watchJob(jobId,v,controller){localJob=jobId;$('cancelLocal').hidden=false;try{while(!controller.signal.aborted){const data=await localRequest('/api/jobs/'+jobId);progress(data.stage);if(data.state==='done')return data.result;if(data.state==='error'||data.state==='cancelled')throw Error(data.error||'Đã hủy tác vụ.');await new Promise(r=>setTimeout(r,900));}await localRequest('/api/jobs/'+jobId+'/cancel',{});throw Error('Đã hủy tác vụ.');}finally{if(localJob===jobId)localJob=null;$('cancelLocal').hidden=true;}}
 async function trySupadataTrial(video,controller){
   const source='/api/supadata-preview?video_id='+encodeURIComponent(video.id);
-  let data=await readApiResponse(await fetch(source,{signal:controller.signal}));
+  const first=await fetch(source,{signal:controller.signal});
+  if(first.status===401){const e=new Error('Video này cần mở khóa Supadata một lần để lấy phụ đề.');e.ownerAccessRequired=true;throw e;}
+  let data=await readApiResponse(first);
   for(let attempt=0;data.pending&&attempt<10;attempt++){
     if(controller.signal.aborted||active!==video)throw new DOMException('Cancelled','AbortError');
     setAutoStatus('Supadata đang chuẩn bị phụ đề…','working');
@@ -327,8 +333,8 @@ async function trySupadataTrial(video,controller){
   if(!Array.isArray(data.cues)||!data.cues.length)throw Error('Supadata chưa trả về phụ đề cho video này.');
   return data;
 }
-async function generate(startOverride,automatic=false,media=null){if(!active)return message('Mở video trước để gắn phụ đề.');if(workController)return;const v=active;const start=startOverride??Math.floor((playerReady?player.getCurrentTime():0)/120)*120;if(!automatic)failedAutoWindows.delete(start);if(automatic)setAutoStatus('Đang tự lấy phụ đề '+timeLabel(start)+'–'+timeLabel(start+120)+'…','working');const controller=new AbortController();workController=controller;workVideo=v;setBusy(true);progress('Đang bắt đầu lấy phụ đề…');try{let response;if(media){if(cloudPreview)throw Error('Whisper tải lên chỉ có trong ứng dụng Mac.');const form=new FormData();form.append('file',media);form.append('video_id',v.id);form.append('start',start);form.append('duration',120);const r=await fetch('/api/upload',{method:'POST',headers:{'X-VietFlow':'1'},body:form,signal:controller.signal});response=await readApiResponse(r);}else if(cloudPreview&&v.id===SUPADATA_TRIAL_VIDEO_ID){
-  if(automatic)setAutoStatus('Đang lấy phụ đề video qua Supadata (bản thử)…','working');
+async function generate(startOverride,automatic=false,media=null){if(!active)return message('Mở video trước để gắn phụ đề.');if(workController)return;const v=active;const start=startOverride??Math.floor((playerReady?player.getCurrentTime():0)/120)*120;if(!automatic)failedAutoWindows.delete(start);if(automatic)setAutoStatus('Đang tự lấy phụ đề '+timeLabel(start)+'–'+timeLabel(start+120)+'…','working');const controller=new AbortController();workController=controller;workVideo=v;setBusy(true);progress('Đang bắt đầu lấy phụ đề…');try{let response;if(media){if(cloudPreview)throw Error('Whisper tải lên chỉ có trong ứng dụng Mac.');const form=new FormData();form.append('file',media);form.append('video_id',v.id);form.append('start',start);form.append('duration',120);const r=await fetch('/api/upload',{method:'POST',headers:{'X-VietFlow':'1'},body:form,signal:controller.signal});response=await readApiResponse(r);}else if(cloudPreview){
+  if(automatic)setAutoStatus('Đang lấy phụ đề có sẵn qua Supadata…','working');
   response=await trySupadataTrial(v,controller);
 }else response=await localRequest('/api/captions',{video_id:v.id,start,duration:120,force_whisper:$('forceWhisper').checked},controller.signal);
 const result=cloudPreview?response:await watchJob(response.job_id,v,controller);
@@ -363,7 +369,7 @@ if(automatic){
   if(!cloudPreview){$('autoPrepare').checked=false;viewPrefs.autoPrepare=false;rememberView();}
   setAutoStatus(cloudPreview?'Chưa lấy được lời thoại để dịch. Video và phụ đề CC của YouTube vẫn có thể xem bình thường.':'Không lấy được phụ đề, đã dừng thử tự động. Bạn có thể thử lại.','error');
 }
-if(active===v){message(e.message);$('quickImport').hidden=false;syncCaptionAvailability();}
+if(active===v){message(e.message);$('quickImport').hidden=false;syncCaptionAvailability();if(e.ownerAccessRequired||e.message?.includes('chủ sở hữu')){$('transcriptUnlock').hidden=false;$('transcriptAccessCode').focus();}}
 }finally{if(workController===controller){workController=null;workVideo=null;setBusy(false);progress('');}}}
 async function translate(){if(!active?.cues.length)return message('Nhập phụ đề trước.');if(workController)return;const v=active,controller=new AbortController();workController=controller;setBusy(true);const missing=v.cues.filter(c=>!c.translation);try{for(let i=0;i<missing.length;i+=20){if(controller.signal.aborted||active!==v)return;progress('Đang dịch '+Math.min(i+20,missing.length)+'/'+missing.length+' câu…');const batch=missing.slice(i,i+20);const result=await localRequest('/api/translate',{texts:batch.map(c=>c.original)});batch.forEach((c,k)=>{if(result.translations[k])c.translation=result.translations[k];});save();renderTranscript();if(result.warnings.length)throw Error(result.warnings.join(' '));}message('Đã dịch phụ đề tiếng Việt, không dùng Gemini.');}catch(e){message(e.message);}finally{if(workController===controller){workController=null;setBusy(false);progress('');}}}
 $('urlForm').onsubmit=e=>{e.preventDefault();const id=videoId($('youtubeUrl').value);if(!id)return message('Hãy nhập link YouTube hợp lệ (youtube.com/watch, youtu.be, shorts hoặc live).');open(id);};
@@ -404,10 +410,34 @@ if(cloudPreview){
   $('connectEleven').disabled=true;
   $('elevenApiKey').disabled=true;
   setAutoStatus('Tự lấy phụ đề từ YouTube khi dán link. Nếu bị YouTube chặn, video vẫn phát.','ready');
-  $('connection').textContent='ANFLOW online · Supadata thử nghiệm';
+  $('connection').textContent='ANFLOW online · Supadata';
 }
 $('openSettings').onclick=()=>$('settingsModal').showModal();$('saveVideoSettings').onclick=e=>{e.preventDefault();apiKey=$('videoApiKey').value.trim();model=$('videoModel').value.trim()||'gemini-2.5-flash';$('connection').textContent=apiKey?'Đã nhập Gemini key':'Chưa nhập API key';$('settingsModal').close();message(apiKey?'Đã giữ API key trong trang này. Khóa sẽ được kiểm tra khi gọi AI.':'Đã xóa API key khỏi bộ nhớ.');};
 $('subtitleModes').onclick=e=>{const button=e.target.closest('[data-mode]');if(!button)return;mode=button.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});showCaption(active?.cues[currentCue]);};
+$('previewNativeVoice').onclick=()=>{
+  const voice=window.speechSynthesis?.getVoices().find(v=>v.voiceURI===$('voice').value);
+  if(!voice)return dubStatus('Thiết bị chưa có giọng tiếng Việt khả dụng.');
+  window.speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance('Xin chào, tôi là giọng tiếng Việt đang được chọn trong ANFLOW.');
+  utterance.lang='vi-VN';utterance.voice=voice;utterance.rate=1;
+  utterance.onstart=()=>dubStatus('Đang nghe thử giọng '+voice.name+'…');
+  utterance.onend=()=>dubStatus(voiceOn?'Đã chọn giọng '+voice.name+'. Sẵn sàng đọc theo video.':'Đã phát mẫu giọng '+voice.name+'.');
+  window.speechSynthesis.speak(utterance);
+};
+$('transcriptUnlock').onsubmit=async event=>{
+  event.preventDefault();const button=$('unlockTranscriptButton');
+  button.disabled=true;button.textContent='Đang mở khóa…';
+  try{
+    const code=$('transcriptAccessCode').value.trim();
+    const result=await localRequest('/api/transcript-access',{code});
+    $('transcriptAccessCode').value='';
+    if(result.authorized){
+      $('transcriptUnlock').hidden=true;message('');
+      if(active)generate(0,false);
+    }
+  }catch(error){message(error.message);}
+  finally{button.disabled=false;button.textContent='Mở khóa';}
+};
 $('quickDub').onclick=()=>{autoDubbingEnabled=!voiceOn;pendingAutoDubbing=false;
   try{localStorage.setItem(DUB_PREF,autoDubbingEnabled?'on':'off');}catch{}
   setVoice(autoDubbingEnabled);

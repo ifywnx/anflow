@@ -1,5 +1,15 @@
 # ANFLOW — Local và bản xem thử Vercel
 
+## Supadata cho nhiều video và giao diện lồng tiếng đúng trạng thái
+
+- Supadata native (chỉ lấy phụ đề có sẵn, KHÔNG AI-generated audio transcription) đã được mở thử cho hai video công khai: Ed Sheeran `JGwWNGJdvx8` và Passenger `RBumgq5yVrA`. Trả phụ đề theo thời gian, dịch qua /api/translate.
+- Video khác sẽ tự yêu cầu **mở khóa một lần** bằng mã riêng của chủ sở hữu trong màn hình xem video. Mã được xác thực trên máy chủ, chỉ tạo HttpOnly + Secure + SameSite=Strict cookie hiệu lực 7 ngày; không lưu mã vào localStorage hoặc GitHub.
+- Cấu hình `ANFLOW_TRANSCRIPT_ACCESS_TOKEN` trên Vercel (encrypted, Production) để bảo vệ API Supadata khỏi sử dụng credits công khai không giới hạn. Các video không được xác thực vẫn sử dụng công cụ YouTube phụ đề miễn phí khi khả dụng.
+- Chỉ những video có bản dịch tiếng Việt mới hiển thị “Sẵn sàng lồng tiếng”. Khi chưa có phụ đề, nút sẽ báo **“Đang chờ bản dịch…”** để không tạo cảm giác rằng giọng đang phát.
+- Có nút **Nghe thử giọng** hoạt động độc lập với phụ đề và có thể nghe giọng Việt trên thiết bị ngay cả với video chưa có lời thoại.
+- Để giới hạn chi phí, Supadata dùng `mode=native`, không tự kích hoạt AI transcription. Ở mức phát triển hiện tại, tài khoản chủ sở hữu vẫn cần giám sát credit quota trong Supadata; ứng dụng chưa có quota liên thiết bị/lưu trữ tập trung.
+
+
 ## Lồng tiếng Việt gần thời gian thực (bản thử)
 
 - Dùng phụ đề gốc từ Supadata, API dịch sang tiếng Việt và bắt đầu đọc theo mốc phụ đề trong trình phát YouTube.

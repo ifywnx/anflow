@@ -1,5 +1,16 @@
 # ANFLOW — Local và bản xem thử Vercel
 
+## Supadata trial (video Ed Sheeran)
+
+- Vercel stores `SUPADATA_API_KEY` as an encrypted **production-only** environment variable, never in GitHub or the browser.
+- When watching `JGwWNGJdvx8`, ANFLOW automatically calls `/api/supadata-preview` to fetch native YouTube captions via Supadata `GET /v1/transcript?mode=native&lang=en&text=false`. It is deliberately **not** using paid AI-generated fallback.
+- The API is restricted to the one video during this test; all other videos use the existing free transcript flow. Do not expand the serverless proxy to arbitrary video URLs before adding centralized quotas and authenticated users.
+- Synchronous caption chunks (offset/duration milliseconds) are mapped to ANFLOW timed cues; asynchronous Supadata responses are polled with a bounded retry count.
+- HTTP GET success is CDN-cached for one day to reduce duplicate Supadata credit use. The browser also keeps its video library in localStorage.
+- After successful caption extraction, ANFLOW uses the existing limited free-translation API to translate text to Vietnamese (translation may fail or rate-limit independently).
+- API calls still require Supadata credits; check the dashboard. Rotating a key requires updating the Vercel environment variable.
+
+
 ## Sửa lỗi API Vercel trả chữ thường thay vì JSON
 
 - Các hàm `api/*.js` sử dụng ES Modules, vì vậy `package.json` khai báo `"type": "module"` theo tài liệu runtime của Vercel. Không cần API key để **gọi endpoint**, nhưng YouTube có thể chặn việc trích xuất caption từ cloud.

@@ -190,7 +190,7 @@ async function trySupadataTrial(video,controller){
     if(controller.signal.aborted||active!==video)throw new DOMException('Cancelled','AbortError');
     setAutoStatus('Supadata đang chuẩn bị phụ đề…','working');
     await new Promise(r=>setTimeout(r,1400));
-    const job='/api/supadata-preview?video_id='+encodeURIComponent(video.id)+'&job_id='+encodeURIComponent(data.job_id);
+    const job='/api/supadata-preview?video_id='+encodeURIComponent(video.id)+'&job_id='+encodeURIComponent(data.job_id)+'&job_token='+encodeURIComponent(data.job_token||'');
     data=await readApiResponse(await fetch(job,{signal:controller.signal}));
   }
   if(data.pending)throw Error('Supadata vẫn đang xử lý, hãy bấm Thử lại sau.');

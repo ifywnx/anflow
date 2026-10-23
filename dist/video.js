@@ -20,6 +20,14 @@ if(cloudPreview){
       localStorage.setItem(migrate,'done');
       localStorage.setItem(VIEW_PREFS,JSON.stringify(viewPrefs));
     }
+    // 1-time recovery: older cloud versions persisted autoPrepare=false
+    // after a caption request failed, disabling later videos unintentionally.
+    const recovery='anflow.cloud-autocaptions-recovery.v1';
+    if(localStorage.getItem(recovery)!=='done'){
+      viewPrefs.autoPrepare=true;
+      localStorage.setItem(VIEW_PREFS,JSON.stringify(viewPrefs));
+      localStorage.setItem(recovery,'done');
+    }
   }catch{viewPrefs.autoPrepare=true;}
 }
 let lastUserTranscriptScroll=0,autoScrollStamp=0;

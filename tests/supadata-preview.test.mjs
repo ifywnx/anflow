@@ -48,3 +48,14 @@ test('API handles missing provider key safely',async()=>{
     assert.equal(res.statusCode,502);assert.match(res.body.detail,/SUPADATA_API_KEY/);
   }finally{if(saved!==undefined)process.env.SUPADATA_API_KEY=saved;}
 });
+
+test('Cached trial endpoint rejects cache-busting parameters before provider calls',async()=>{
+  const res=fakeResponse();
+  await endpoint({method:'GET',query:{video_id:TRIAL_VIDEO_ID,random:'cache-buster'}},res);
+  assert.equal(res.statusCode,400);
+});
+test('Polling arbitrary Supadata jobs requires a signature',async()=>{
+  const res=fakeResponse();
+  await endpoint({method:'GET',query:{video_id:TRIAL_VIDEO_ID,job_id:'arbitrarytask'}},res);
+  assert.equal(res.statusCode,403);
+});

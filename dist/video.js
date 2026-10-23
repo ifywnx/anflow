@@ -5,6 +5,9 @@ const cloudPreview=location.hostname.endsWith('.vercel.app');
 const cloudMessage='YouTube có thể không cấp phụ đề qua Vercel; ANFLOW đang thử Supadata với một video kiểm chứng. Whisper và ElevenLabs vẫn chỉ có trên bản Mac.';
 const SUPADATA_TRIAL_VIDEO_ID='JGwWNGJdvx8';
 const DUB_PREF='anflow.auto-dubbing.v1';
+const NATIVE_VOICE_PREF='anflow.preferred-native-voice.v1';
+function preferredNativeVoice(){try{return localStorage.getItem(NATIVE_VOICE_PREF)||'';}catch{return '';}}
+function rememberNativeVoice(value){try{localStorage.setItem(NATIVE_VOICE_PREF,value);}catch{}}
 let paidDubbingReady=false,paidAccessCode='',lastSpeechPrefetch=0,pendingAutoDubbing=false;
 let autoDubbingEnabled=cloudPreview;
 try{const value=localStorage.getItem(DUB_PREF);if(value==='off')autoDubbingEnabled=false;if(value==='on')autoDubbingEnabled=true;}catch{}
@@ -129,12 +132,31 @@ function setVoice(enabled){
   if(enabled){pendingAutoDubbing=false;dubStatus('Đang đồng bộ giọng đọc với phụ đề tiếng Việt.');currentCue=-2;if(playerReady)tick();}
   else if(!pendingAutoDubbing)dubStatus('Đã tắt lồng tiếng. Bạn có thể bật lại bất cứ lúc nào.');
 }
+function syncQuickVoicePicker(){
+  const picker=$('quickVoice'),provider=$('voiceProvider').value;
+  const source=provider==='eleven'?$('elevenVoice'):$('voice');
+  $('quickVoiceLabel').textContent=provider==='eleven'?'Giọng ElevenLabs':'Giọng thiết bị';
+  picker.replaceChildren();
+  for(const option of source.options)picker.add(new Option(option.text,option.value));
+  picker.disabled=!source.value||(provider==='eleven'&&!paidDubbingReady);
+  if(source.value)picker.value=source.value;
+  picker.title=picker.disabled?(provider==='eleven'?'Chưa kết nối ElevenLabs trên Vercel':'Máy chưa có giọng tiếng Việt; hãy cài giọng vi-VN trong hệ điều hành.'):'Chọn giọng đọc để sử dụng ngay';
+}
+function selectedVoiceChanged(target){
+  if(target===$('voice'))rememberNativeVoice(target.value);
+  syncQuickVoicePicker();
+  stopVoice();
+  currentCue=-2;
+  if(voiceOn&&playing&&playerReady)tick();
+}
 function refreshVoices(){
   const voices=window.speechSynthesis?.getVoices().filter(v=>v.lang.toLowerCase().startsWith('vi'))||[];
-  const previous=$('voice').value;$('voice').replaceChildren();
-  if(!voices.length)$('voice').append(new Option('Chưa có giọng tiếng Việt',''));
-  else for(const v of voices)$('voice').append(new Option(v.name,v.voiceURI));
+  const previous=$('voice').value||preferredNativeVoice();
+  $('voice').replaceChildren();
+  if(!voices.length)$('voice').append(new Option('Thiết bị chưa có giọng tiếng Việt',''));
+  else for(const v of voices)$('voice').append(new Option(v.name+' · '+v.lang,v.voiceURI));
   if(voices.some(v=>v.voiceURI===previous))$('voice').value=previous;
+  syncQuickVoicePicker();
   if(voices.length&&pendingAutoDubbing&&autoDubbingEnabled&&active&&!voiceOn&&$('voiceProvider').value==='native'){
     pendingAutoDubbing=false;setVoice(true);
   }
@@ -393,7 +415,13 @@ $('quickDub').onclick=()=>{autoDubbingEnabled=!voiceOn;pendingAutoDubbing=false;
 $('dubbing').onchange=()=>{autoDubbingEnabled=$('dubbing').checked;
   try{localStorage.setItem(DUB_PREF,autoDubbingEnabled?'on':'off');}catch{}
   setVoice(autoDubbingEnabled);
-};$('voice').onchange=()=>{stopVoice();currentCue=-1;};$('offset').onchange=()=>{if(active){active.offset=Math.max(-120,Math.min(120,Number($('offset').value)||0));$('offset').value=active.offset;currentCue=-1;stopVoice();save();}};$('watchedOnly').onchange=applyTranscriptFilters;$('transcriptSearch').oninput=applyTranscriptFilters;$('clearTranscriptSearch').onclick=()=>{$('transcriptSearch').value='';applyTranscriptFilters();$('transcriptSearch').focus();};
+};$('voice').onchange=()=>selectedVoiceChanged($('voice'));
+$('quickVoice').onchange=()=>{
+  const provider=$('voiceProvider').value;
+  const target=provider==='eleven'?$('elevenVoice'):$('voice');
+  target.value=$('quickVoice').value;
+  selectedVoiceChanged(target);
+};$('offset').onchange=()=>{if(active){active.offset=Math.max(-120,Math.min(120,Number($('offset').value)||0));$('offset').value=active.offset;currentCue=-1;stopVoice();save();}};$('watchedOnly').onchange=applyTranscriptFilters;$('transcriptSearch').oninput=applyTranscriptFilters;$('clearTranscriptSearch').onclick=()=>{$('transcriptSearch').value='';applyTranscriptFilters();$('transcriptSearch').focus();};
 $('importButton').onclick=()=>{if(!active)return message('Mở video trước khi nhập phụ đề.');$('subtitleFile').click();};$('subtitleFile').onchange=async()=>{const file=$('subtitleFile').files[0];$('subtitleFile').value='';if(!file)return;if(file.size>5*1024*1024)return message('File phụ đề tối đa 5 MB.');const v=active;try{const cues=parseSubtitles(await file.text());if(active!==v)return;pendingImport={video:v,cues};$('pasteSubtitleLabel').hidden=true;$('importDescription').textContent=file.name+' · '+cues.length+' câu';$('importModal').showModal();}catch(e){message(e.message);}};
 $('pasteSubtitles').onclick=()=>{if(!active)return message('Mở video trước khi nhập phụ đề.');pendingImport={video:active,cues:[]};$('subtitleText').value='';$('pasteSubtitleLabel').hidden=false;$('importDescription').textContent='Dán phụ đề có mốc thời gian để xem theo video.';$('importModal').showModal();};
 $('confirmImport').onclick=e=>{e.preventDefault();if(!pendingImport||pendingImport.video!==active)return;if(!$('pasteSubtitleLabel').hidden){try{pendingImport.cues=parseSubtitles($('subtitleText').value);}catch(error){$('importDescription').textContent=error.message;return;}}$('autoPrepare').checked=false;stopVoice();const cues=pendingImport.cues;if($('importLanguage').value==='vi')cues.forEach(c=>c.translation=c.original);active.cues=cues;active.source='import';active.ranges=[];active.seen=[];save();history();renderTranscript();renderStudy();$('importModal').close();pendingImport=null;message('Đã nhập phụ đề. Bấm phát video để xem theo thời gian.');};
@@ -562,14 +590,15 @@ async function loadEleven(){
       const status=await localRequest('/api/dubbing');
       paidDubbingReady=status.elevenlabs_ready===true;
       $('voiceProvider').querySelector('[value="eleven"]').disabled=!paidDubbingReady;
+      syncQuickVoicePicker();
       $('elevenConnection').textContent=paidDubbingReady?'ElevenLabs Flash đã sẵn sàng. Nhập mã quyền sử dụng.':'Chưa cấu hình ElevenLabs trên Vercel. Giọng thiết bị vẫn miễn phí.';
     }catch(e){dubStatus('Không kiểm tra được ElevenLabs; giọng thiết bị vẫn hoạt động.');}
     return;
   }
-  try{const health=await localRequest('/api/health');$('connection').textContent=health.elevenlabs_connected?'ElevenLabs đã kết nối':'Local sẵn sàng · chưa có ElevenLabs';$('elevenConnection').textContent=health.elevenlabs_connected?'Khóa đang nằm trong bộ nhớ máy chủ local.':'Chưa kết nối ElevenLabs.';if(health.elevenlabs_connected){const data=await localRequest('/api/voices');$('elevenVoice').replaceChildren();data.voices.forEach(v=>$('elevenVoice').append(new Option(v.name+(v.gender?' · '+({male:'nam',female:'nữ',neutral:'trung tính'}[v.gender]||v.gender):''),v.id)));if(data.voices.some(v=>v.id==='EXAVITQu4vr4xnSDxMaL'))$('elevenVoice').value='EXAVITQu4vr4xnSDxMaL';}}catch(e){$('elevenConnection').textContent=e.message;}}
+  try{const health=await localRequest('/api/health');$('connection').textContent=health.elevenlabs_connected?'ElevenLabs đã kết nối':'Local sẵn sàng · chưa có ElevenLabs';$('elevenConnection').textContent=health.elevenlabs_connected?'Khóa đang nằm trong bộ nhớ máy chủ local.':'Chưa kết nối ElevenLabs.';if(health.elevenlabs_connected){const data=await localRequest('/api/voices');$('elevenVoice').replaceChildren();data.voices.forEach(v=>$('elevenVoice').append(new Option(v.name+(v.gender?' · '+({male:'nam',female:'nữ',neutral:'trung tính'}[v.gender]||v.gender):''),v.id)));if(data.voices.some(v=>v.id==='EXAVITQu4vr4xnSDxMaL'))$('elevenVoice').value='EXAVITQu4vr4xnSDxMaL';syncQuickVoicePicker();}}catch(e){$('elevenConnection').textContent=e.message;}}
 $('connectEleven').onclick=async()=>{try{const key=$('elevenApiKey').value.trim();if(key)await localRequest('/api/key',{key});$('elevenApiKey').value='';await loadEleven();}catch(e){$('elevenConnection').textContent=e.message;}};
-$('voiceProvider').onchange=()=>{setVoice(false);const eleven=$('voiceProvider').value==='eleven';$('voice').hidden=eleven;$('elevenVoice').hidden=!eleven;$('prepareAudio').hidden=!eleven;};
-$('elevenVoice').onchange=()=>{stopVoice();currentCue=-1;};
+$('voiceProvider').onchange=()=>{setVoice(false);const eleven=$('voiceProvider').value==='eleven';$('voice').hidden=eleven;$('elevenVoice').hidden=!eleven;$('prepareAudio').hidden=!eleven;syncQuickVoicePicker();};
+$('elevenVoice').onchange=()=>selectedVoiceChanged($('elevenVoice'));
 $('saveElevenAccess').onclick=()=>{
   const code=$('elevenAccessCode').value.trim();$('elevenAccessCode').value='';
   if(!paidDubbingReady)return dubStatus('Chưa cấu hình ElevenLabs trên Vercel.');

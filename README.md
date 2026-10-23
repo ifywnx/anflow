@@ -1,5 +1,15 @@
 # ANFLOW — Local và bản xem thử Vercel
 
+## Lồng tiếng Việt gần thời gian thực (bản thử)
+
+- Dùng phụ đề gốc từ Supadata, API dịch sang tiếng Việt và bắt đầu đọc theo mốc phụ đề trong trình phát YouTube.
+- **Mặc định giọng tiếng Việt của hệ điều hành** (Web Speech API); nếu thiết bị chưa có giọng `vi-VN` thì thông báo rõ để người dùng cài giọng. Không cần ElevenLabs API key cho chế độ này.
+- Đã chuẩn bị **ElevenLabs Flash v2.5 streaming** cho Vercel `POST /api/dubbing`, nhưng chỉ hoạt động khi chủ sở hữu cấu hình cả `ELEVENLABS_API_KEY` và `ANFLOW_DUB_ACCESS_TOKEN` (chuỗi dài ít nhất 20 ký tự) trong Vercel Project → Environment Variables → Production. **Không điền key trong chat, GitHub, hoặc browser.**
+- API có GET kiểm tra trạng thái và POST trả âm thanh MP3, giới hạn đúng video thử nghiệm, 220 ký tự mỗi câu, có token quản trị để tránh người lạ lạm dụng credits. Chỉ người đã có mã truy cập mới bật dịch vụ trả phí; không biến thành proxy công khai khi chưa có hệ thống đăng nhập và hạn mức người dùng.
+- Client chuẩn bị giọng cho tối đa vài câu phía trước, cache âm thanh cho lần phát lại trong phiên, hạ âm lượng YouTube khi nói, phục hồi sau khi hết câu và đồng bộ lại khi tua/tạm dừng.
+- **Không bảo đảm zero delay**: cần thời gian lấy phụ đề, dịch, truyền mạng và tổng hợp giọng; giọng tạo sẵn giúp giảm trễ ở các câu tiếp theo. Với video có nhạc, không thể tách giọng ca sĩ khỏi nhạc chỉ bằng cách hạ âm lượng YouTube.
+
+
 ## Supadata trial (video Ed Sheeran)
 
 - Vercel stores `SUPADATA_API_KEY` as an encrypted **production-only** environment variable, never in GitHub or the browser.

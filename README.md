@@ -1,5 +1,13 @@
 # VietFlow — Local và bản xem thử Vercel
 
+## V1.5.1 — xử lý trường hợp YouTube có CC nhưng ANFLOW chưa dịch
+
+- Khi chưa lấy được transcript riêng, không hiển thị một dải phụ đề ANFLOW rỗng phủ dưới video. Phụ đề **CC trực tiếp từ YouTube** được bật ưu tiên (nếu chủ video cho phép); `cc_lang_pref=vi` chỉ là lựa chọn ưu tiên, không bảo đảm YouTube dịch tự động.
+- Chỉ hiện các nút ngôn ngữ ANFLOW khi thực sự có nội dung phụ đề riêng; nếu thiếu có thông báo ngắn cạnh video và nút Thử lại / Nhập SRT/VTT.
+- Lời thoại và sổ học tập mặc định ẩn sau nút **Lời thoại & học tập**, tránh chiếm diện tích khi mục đích chỉ là xem.
+- Thất bại cloud chỉ chặn thử lại tự động cho đoạn đã lỗi ở video hiện tại; mở video khác vẫn tự tìm phụ đề, không bị lưu trạng thái tắt vĩnh viễn vào trình duyệt.
+- Cải thiện hiển thị tình trạng khi trình phát sẵn sàng trong lúc API phụ đề vẫn đang chạy, và tăng cỡ chữ điều khiển.
+
 ## ANFLOW bản dán link là xem — V1.5
 
 - Chỉ cần **dán URL YouTube** vào ô chính (tự nhận link dán), ANFLOW mở video và thử phát luôn; nếu trình duyệt chặn autoplay có tiếng, bấm nút Play của YouTube.

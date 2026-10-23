@@ -39,3 +39,32 @@ export function vocabularyCsv(words,videoId){
   }
   return '\uFEFF'+rows.map(row=>row.map(safeCell).join(',')).join('\r\n')+'\r\n';
 }
+
+/** Validate an exported video notebook before restoring it from a user-selected JSON. */
+export function readStudyBackup(value,expectedVideoId){
+  const d=typeof value==='string'?JSON.parse(value):value;
+  if(!d||d.version!==1||d.videoId!==expectedVideoId||!Array.isArray(d.words)||!Array.isArray(d.bookmarks))
+    throw Error('Bản sao không hợp lệ hoặc không thuộc video đang mở.');
+  const words=[];
+  for(const w of d.words.slice(0,500)){
+    if(!w||typeof w.word!=='string'||typeof w.meaning!=='string'||!Number.isFinite(w.start))continue;
+    const word=w.word.trim(),meaning=w.meaning.trim();
+    if(!word||word.length>120||meaning.length>500||w.start<0||w.start>172800)continue;
+    if(words.some(x=>studyKey(x.word)===studyKey(word)))continue;
+    words.push({word,meaning,example:typeof w.example==='string'?w.example.slice(0,2000):'',start:w.start});
+  }
+  const bookmarks=[];
+  for(const b of d.bookmarks.slice(0,300)){
+    if(!b||!Number.isFinite(b.start)||b.start<0||b.start>172800||typeof b.label!=='string')continue;
+    if(bookmarks.some(x=>Math.abs(x.start-b.start)<.5))continue;
+    bookmarks.push({start:b.start,label:b.label.slice(0,110)});
+  }
+  let captions=[];
+  if(Array.isArray(d.captions)&&d.captions.length<=20000){
+    const valid=d.captions.every(c=>c&&Number.isFinite(c.start)&&Number.isFinite(c.end)&&
+      c.start>=0&&c.end>c.start&&c.end<=172800&&typeof c.original==='string'&&c.original.length<=5000&&
+      typeof c.translation==='string'&&c.translation.length<=5000);
+    if(valid)captions=d.captions.map(c=>({start:c.start,end:c.end,original:c.original,translation:c.translation,edited:c.edited===true})).sort((a,b)=>a.start-b.start);
+  }
+  return {words,bookmarks,captions};
+}

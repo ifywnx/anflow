@@ -1,4 +1,4 @@
-import {videoId,timeLabel,parseSubtitles,normalizeGenerated,cueAt,mergeRangeKeepingEdits,srt,studyKey,cueMatchesSearch,vocabularyCsv} from './video-core.mjs';
+import {videoId,timeLabel,parseSubtitles,normalizeGenerated,cueAt,mergeRangeKeepingEdits,srt,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup} from './video-core.mjs';
 const $=id=>document.getElementById(id),STORE='vietflow.videos.v1';
 let library={};try{const stored=JSON.parse(localStorage.getItem(STORE)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))for(const [id,v] of Object.entries(stored)){if(/^[\w-]{11}$/.test(id)&&v&&Array.isArray(v.cues)&&typeof v.title==='string')library[id]={...v,cues:v.cues.filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&typeof c.original==='string'&&typeof c.translation==='string').sort((a,b)=>a.start-b.start),seen:Array.isArray(v.seen)?v.seen:[],ranges:Array.isArray(v.ranges)?v.ranges:[],chat:Array.isArray(v.chat)?v.chat:[],words:Array.isArray(v.words)?v.words.filter(w=>w&&typeof w.word==='string'&&typeof w.meaning==='string'&&Number.isFinite(w.start)).slice(0,500):[],bookmarks:Array.isArray(v.bookmarks)?v.bookmarks.filter(b=>b&&Number.isFinite(b.start)&&typeof b.label==='string').slice(0,300):[]};}}catch{}
 let wordContext=null,editContext=null,selectedCueStart=null;
@@ -168,7 +168,8 @@ $('cueEditForm').onsubmit=event=>{
   const translation=$('cueTranslation').value.trim();
   if(!translation||translation.length>4500)return message('Bản dịch phải có từ 1 đến 4500 ký tự.');
   editContext.cue.translation=translation;editContext.cue.edited=true;
-  stopVoice();save();renderTranscript();showCaption(active.cues[currentCue]);
+  const visible=playerReady?cueAt(active.cues,player.getCurrentTime()-(active.offset||0)):-1;
+  stopVoice();save();renderTranscript();showCaption(visible>=0?active.cues[visible]:null);
   $('cueEditDialog').close();message('Đã lưu bản dịch chỉnh sửa trên thiết bị.');
 };
 $('closeCueEditDialog').onclick=()=>$('cueEditDialog').close();
@@ -176,9 +177,39 @@ $('bookmarkCurrent').onclick=()=>{
   if(!active||!playerReady)return message('Mở và tải video trước khi đánh dấu.');
   const now=player.getCurrentTime()||0;
   const cue=active.cues[cueAt(active.cues,now-(active.offset||0))];
-  addBookmark(now-(active.offset||0),cue?.original||'Đoạn video');
+  addBookmark(Math.max(0,now-(active.offset||0)),cue?.original||'Đoạn video');
 };
 $('addWordManual').onclick=()=>openWordEditor(null);
+$('restoreStudyBackup').onclick=()=>{if(!active)return message('Mở video trước.');$('studyFile').click();};
+$('studyFile').onchange=async()=>{
+  const file=$('studyFile').files[0];$('studyFile').value='';if(!file||!active)return;
+  if(file.size>8*1024*1024)return message('Bản sao JSON tối đa 8 MB.');
+  const video=active;
+  try{
+    const data=readStudyBackup(await file.text(),video.id);
+    if(active!==video)return;
+    const existing=new Set(video.words.map(w=>studyKey(w.word)));
+    let added=0;
+    for(const w of data.words){
+      if(video.words.length>=500)break;
+      const key=studyKey(w.word);
+      if(existing.has(key))continue;
+      existing.add(key);video.words.push({id:crypto.randomUUID(),...w,createdAt:Date.now()});added++;
+    }
+    let marked=0;
+    for(const b of data.bookmarks){
+      if(video.bookmarks.length>=300)break;
+      if(video.bookmarks.some(x=>Math.abs(x.start-b.start)<.5))continue;
+      video.bookmarks.push({id:crypto.randomUUID(),...b});marked++;
+    }
+    let recovered=0;
+    if(!video.cues.length&&data.captions.length){
+      video.cues=data.captions;video.source='import';video.ranges=[];recovered=video.cues.length;
+      renderTranscript();
+    }
+    save();renderStudy();message('Đã khôi phục '+added+' từ, '+marked+' dấu mốc'+(recovered?', '+recovered+' câu phụ đề':'')+'. Dữ liệu đã có được giữ nguyên.');
+  }catch(error){if(active===video)message('Không khôi phục được: '+error.message);}
+};
 $('exportVocabulary').onclick=()=>{
   if(!active?.words.length)return message('Chưa có từ vựng để xuất.');
   downloadText('vietflow-tu-vung-'+active.id+'.csv',vocabularyCsv(active.words,active.id),'text/csv;charset=utf-8');

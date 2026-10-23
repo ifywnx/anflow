@@ -34,4 +34,14 @@ jobs:
           const valid=result.cues.every(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&typeof c.original==='string');
           if(!valid)throw Error('Invalid cue timestamps');
           console.log(JSON.stringify({status:'PASS',source:result.source,lang:result.language,cueCount:result.cues.length,firstTimestamp:result.cues[0].start,lastTimestamp:result.cues.at(-1).end}));
+          const translated=await fetch('https://anflow-hazel.vercel.app/api/translate',{
+            method:'POST',headers:{'X-VietFlow':'1','Content-Type':'application/json'},
+            body:JSON.stringify({texts:['Good morning']}),
+            signal:AbortSignal.timeout(18000)
+          });
+          const textResult=await translated.json();
+          if(!translated.ok||!Array.isArray(textResult.translations))throw Error('Translation API failed, HTTP '+translated.status);
+          const hasVietnamese=typeof textResult.translations[0]==='string'&&textResult.translations[0].trim().length>0;
+          console.log(JSON.stringify({translationHttp:translated.status,hasVietnameseTranslation:hasVietnamese}));
+          if(!hasVietnamese)throw Error('Translation service returned empty text; transcript extraction works but translation needs repair');
           NODE

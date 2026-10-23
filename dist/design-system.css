@@ -275,3 +275,37 @@ body.focus-mode .player-options{max-height:70vh;overflow-y:auto}
 .cloud-banner span{flex:1;min-width:200px}
 .cloud-banner[hidden]{display:none}
 :root[data-theme="dark"] .cloud-banner{background:linear-gradient(115deg,#26365a,#243b49);border-color:#4d608b;color:#dce7ff}
+
+/* One-paste watch UX. Keep advanced controls accessible without visual clutter. */
+.player-grid{grid-template-columns:minmax(0,1fr)!important;gap:12px}
+.video-card{padding:22px!important}
+.video-column{min-width:0}
+.advanced-settings{margin:6px 0 0;border:1px solid var(--vf-border)!important;border-radius:15px!important;background:var(--vf-subtle)!important;box-shadow:none}
+.advanced-settings>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:13px 17px;color:var(--vf-ink);font-weight:700;font-size:12px}
+.advanced-settings>summary small{font-size:10px;color:var(--vf-muted);font-weight:400;line-height:1.5;text-align:right}
+.advanced-settings[open]>summary{border-bottom:1px solid var(--vf-border)}
+.advanced-inner{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:18px}
+.advanced-inner>.control-group{margin:0}
+.advanced-inner>.caption-settings{grid-column:1/-1;margin-top:4px}
+.advanced-inner .control-group:first-child{grid-column:1}
+.quick-video-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0 6px}
+.quick-video-controls .segmented{width:min(440px,100%);flex:1;min-width:240px}
+.quick-video-controls .segmented button{font-size:11px;padding:10px}
+.quick-video-controls .secondary{margin:0;font-size:11px;font-weight:650;white-space:nowrap}
+.auto-status{margin:10px 0 0;padding:10px 14px}
+.page-intro{padding-block:18px!important;margin-bottom:14px!important}
+.page-intro p{max-width:820px}
+.url-bar{margin-bottom:12px}
+.cloud-banner{margin:7px 0 14px;font-size:11px;padding:10px 14px}
+:root[data-theme="dark"] .advanced-settings{background:#202b4d!important}
+@media(max-width:900px){.advanced-inner{grid-template-columns:1fr}.advanced-inner>.caption-settings{grid-column:1}}
+@media(max-width:720px){
+ .video-card{padding:13px!important}
+ .advanced-settings>summary{flex-wrap:wrap}
+ .advanced-inner{padding:13px}
+ .quick-video-controls{gap:7px}
+ .quick-video-controls .segmented{min-width:0;width:100%;flex-basis:100%}
+ .quick-video-controls .secondary{flex:1}
+ .page-intro{padding:17px!important}
+ .page-intro h1{font-size:26px}
+}

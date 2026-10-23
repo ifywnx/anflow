@@ -29,6 +29,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate module syntax
-        run: node --check dist/workspace-ui.mjs && node --check dist/video-core.mjs && node --check dist/video.js
+        run: node --check dist/workspace-ui.mjs && node --check dist/video-core.mjs && node --check dist/video.js && node --check api/captions.js && node --check lib/youtube-captions.mjs
       - name: Frontend unit tests
-        run: node --test tests/video-core.test.mjs
+        run: node --test tests/*.test.mjs

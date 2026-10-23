@@ -191,7 +191,7 @@ def execute(j,spec,upload=None):
                 valid(j);failures.append('Nguồn youtube-transcript-api không khả dụng ('+type(e).__name__+').')
                 try:result,language=ytdlp_captions(spec.video_id,start,end,j,folder);source='yt-dlp'
                 except Exception as e:valid(j);failures.append('Nguồn phụ đề yt-dlp không khả dụng.')
-        if not result:
+        if not result and not upload:
             status(j,'Không có phụ đề phù hợp; đang tải đoạn âm thanh để chạy Whisper…')
             ff=ffmpeg()
             run_process([sys.executable,'-m','yt_dlp','--no-playlist','--no-warnings','--quiet','--socket-timeout','20','--retries','0','-f','bestaudio/best','--ffmpeg-location',str(Path(ff).parent),'--download-sections',f'*{start}-{end}','-o',str(folder/'source.%(ext)s'),'https://www.youtube.com/watch?v='+spec.video_id],j,240)

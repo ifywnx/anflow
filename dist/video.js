@@ -14,11 +14,14 @@ let autoDubbingEnabled=cloudPreview;
 try{const value=localStorage.getItem(DUB_PREF);if(value==='off')autoDubbingEnabled=false;if(value==='on')autoDubbingEnabled=true;}catch{}
 function dubStatus(value){$('dubLiveStatus').textContent=value;$('ttsStatus').textContent=value;syncDubButtons();}
 function syncDubButtons(){
-  const hasTranslation=Boolean(active?.cues?.some(c=>typeof c.translation==='string'&&c.translation.trim()));
+  const firstTranslated=active?.cues?.find(c=>typeof c.translation==='string'&&c.translation.trim());
+  const hasTranslation=Boolean(firstTranslated);
+  const videoTime=playerReady&&player?player.getCurrentTime()-(active.offset||0):0;
+  const beforeFirst=Boolean(voiceOn&&firstTranslated&&videoTime<firstTranslated.start-.2);
   $('quickDub').setAttribute('aria-pressed',String(voiceOn));
   $('quickDub').classList.toggle('active',voiceOn&&hasTranslation);
   $('quickDub').classList.toggle('waiting',voiceOn&&!hasTranslation);
-  $('quickDub').textContent=!voiceOn?'Bật lồng tiếng Việt':!hasTranslation?'Đang chờ bản dịch…':playing?'Đã bật lồng tiếng Việt':'Sẵn sàng lồng tiếng Việt';
+  $('quickDub').textContent=!voiceOn?'Bật lồng tiếng Việt':!hasTranslation?'Đang chờ bản dịch…':beforeFirst?'Giọng đọc từ '+timeLabel(firstTranslated.start):playing?'Đã bật lồng tiếng Việt':'Sẵn sàng lồng tiếng Việt';
   $('dubbing').checked=voiceOn;
 }
 let library={};try{const stored=JSON.parse(localStorage.getItem(STORE)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))for(const [id,v] of Object.entries(stored)){if(/^[\w-]{11}$/.test(id)&&v&&Array.isArray(v.cues)&&typeof v.title==='string')library[id]={...v,cues:v.cues.filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&typeof c.original==='string'&&typeof c.translation==='string').sort((a,b)=>a.start-b.start),seen:Array.isArray(v.seen)?v.seen:[],ranges:Array.isArray(v.ranges)?v.ranges:[],chat:Array.isArray(v.chat)?v.chat:[],words:Array.isArray(v.words)?v.words.filter(w=>w&&typeof w.word==='string'&&typeof w.meaning==='string'&&Number.isFinite(w.start)).slice(0,500):[],bookmarks:Array.isArray(v.bookmarks)?v.bookmarks.filter(b=>b&&Number.isFinite(b.start)&&typeof b.label==='string').slice(0,300):[]};}}catch{}
@@ -339,7 +342,7 @@ async function generate(startOverride,automatic=false,media=null){if(!active)ret
 }else response=await localRequest('/api/captions',{video_id:v.id,start,duration:120,force_whisper:$('forceWhisper').checked},controller.signal);
 const result=cloudPreview?response:await watchJob(response.job_id,v,controller);
 if(active!==v||controller.signal.aborted)return;v.cues=mergeRangeKeepingEdits(v.cues,result.cues,result.start,result.end);v.ranges.push([result.start,result.end]);v.source=result.source;save();history();renderTranscript();renderStudy();
-if(automatic)setAutoStatus('Đã lấy '+result.cues.length+' câu phụ đề · '+timeLabel(result.start)+'–'+timeLabel(result.end),'done');
+if(automatic)setAutoStatus('Đã lấy '+result.cues.length+' câu phụ đề.'+(result.cues[0]?.start>5?' Lời thoại bắt đầu ở '+timeLabel(result.cues[0].start)+'.':' '),'done');
 if(cloudPreview && result.cues.some(c=>!c.translation)){
   const pending=result.cues.filter(c=>!c.translation&&c.original.length<=600);
   for(let i=0;i<pending.length;i+=10){
@@ -361,7 +364,7 @@ if(cloudPreview && result.cues.some(c=>!c.translation)){
       }
     }catch(e){if(e.name==='AbortError')break;message('Dịch tự động bị giới hạn. Phụ đề gốc vẫn sử dụng được.');break;}
   }
-  if(automatic&&active===v)setAutoStatus(result.cues.some(c=>c.translation)?'Phụ đề tiếng Việt đã sẵn sàng.':'Đã có phụ đề gốc, nhưng chưa dịch được toàn bộ sang tiếng Việt.','done');
+  if(automatic&&active===v)setAutoStatus((result.cues.some(c=>c.translation)?'Phụ đề tiếng Việt đã sẵn sàng.':'Đã có phụ đề gốc, nhưng chưa dịch được toàn bộ sang tiếng Việt.')+(v.cues[0]?.start>5?' Giọng đọc bắt đầu khoảng '+timeLabel(v.cues[0].start)+'.':''),'done');
 }
 if(!automatic)message('Đã lấy '+result.cues.length+' câu phụ đề. '+result.warnings.join(' '));else if(!cloudPreview)setAutoStatus('Phụ đề đã sẵn sàng · '+result.cues.length+' câu.','done');}catch(e){if(controller.signal.aborted)return;
 if(automatic){

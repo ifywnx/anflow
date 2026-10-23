@@ -7,3 +7,35 @@ export function normalizeGenerated(data,start,end){if(!data||!Array.isArray(data
 export function cueAt(cues,time){let low=0,high=cues.length-1,best=-1;while(low<=high){const mid=(low+high)>>1;if(cues[mid].start<=time){best=mid;low=mid+1;}else high=mid-1;}return best>=0&&time<cues[best].end?best:-1;}
 export function mergeRange(cues,additional,start,end){return [...cues.filter(c=>c.start<start||c.start>=end),...additional].sort((a,b)=>a.start-b.start);}
 export function srt(cues){const t=n=>{const ms=Math.round(n*1000);return String(Math.floor(ms/3600000)).padStart(2,'0')+':'+String(Math.floor(ms%3600000/60000)).padStart(2,'0')+':'+String(Math.floor(ms%60000/1000)).padStart(2,'0')+','+String(ms%1000).padStart(3,'0');};return cues.map((c,i)=>`${i+1}\n${t(c.start)} --> ${t(c.end)}\n${c.translation||c.original}\n`).join('\n');}
+
+/** Accent-insensitive search: works for Vietnamese and Latin scripts. */
+export function studyKey(value){
+  return String(value??'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,ch=>ch==='Đ'?'D':'d').toLocaleLowerCase('vi-VN').replace(/\s+/g,' ');
+}
+export function cueMatchesSearch(cue,term){
+  const q=studyKey(term);
+  return !q||studyKey(cue?.original).includes(q)||studyKey(cue?.translation).includes(q);
+}
+/** Keep manually corrected translations if a source is downloaded again. */
+export function mergeRangeKeepingEdits(current,additional,start,end){
+  const edited=current.filter(c=>c.edited===true&&c.start>=start&&c.start<end);
+  const merged=additional.map(next=>{
+    const existing=edited.find(c=>Math.abs(c.start-next.start)<.151&&studyKey(c.original)===studyKey(next.original));
+    return existing?{...next,translation:existing.translation,edited:true}:next;
+  });
+  return mergeRange(current,merged,start,end);
+}
+function safeCell(value){
+  let text=String(value??'');
+  // Spreadsheet formula injection prevention, including leading whitespace.
+  if(/^[\s\u0000-\u001f]*[=+@-]/u.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+export function vocabularyCsv(words,videoId){
+  const rows=[['Từ / cụm từ','Nghĩa tiếng Việt','Ví dụ trong video','Thời điểm','Liên kết video']];
+  for(const w of words){
+    const time=Number.isFinite(w.start)?w.start:0;
+    rows.push([w.word,w.meaning||'',w.example||'',timeLabel(time),'https://www.youtube.com/watch?v='+videoId+'&t='+Math.floor(time)+'s']);
+  }
+  return '\uFEFF'+rows.map(row=>row.map(safeCell).join(',')).join('\r\n')+'\r\n';
+}

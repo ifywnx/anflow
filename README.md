@@ -47,6 +47,17 @@ Phần **Hỏi AI** và phòng ghi chú cũ vẫn là tùy chọn Gemini; không
 - Google nhận phần văn bản cần dịch. ElevenLabs nhận câu tiếng Việt khi tạo giọng. Không đồng bộ khóa lên web.
 - Có nút hủy tác vụ. Khi đang tải model, việc hủy được hoàn tất sau bước tải/nạp hiện tại.
 
+## Nâng cấp 1.3 — học trực tiếp từ video
+
+- Tìm kiếm lời thoại theo cả bản gốc và tiếng Việt, không phân biệt dấu.
+- Mỗi câu phụ đề có nút lưu từ vựng, đánh dấu thời điểm và sửa bản dịch.
+- Có thể bôi đen từ/cụm từ để lưu vào sổ; tra nghĩa tiếng Việt nhanh bằng dịch vụ miễn phí (hoặc nhập nghĩa thủ công).
+- Sổ từ vựng và dấu mốc được lưu riêng theo video, có nút tua về ví dụ, xóa, xuất CSV từ vựng và sao lưu JSON.
+- Khi làm mới một đoạn từ YouTube / Whisper, bản dịch đã chỉnh sửa được giữ lại nếu câu gốc và thời điểm gần như trùng nhau.
+- Không cần Gemini để dùng các công cụ học tập. Dữ liệu chỉ lưu trong trình duyệt, không tự đồng bộ; hãy sao lưu trước khi xóa dữ liệu trình duyệt.
+- File CSV có bảo vệ chống công thức nguy hiểm khi mở bằng phần mềm bảng tính.
+- Phím tắt, xem video, ghi chú, API key, Whisper và ElevenLabs hoạt động như trước.
+
 ## Nâng cấp 1.2 — giao diện và độ tin cậy
 
 - Giao diện video và ghi chú dùng chung thiết kế mới, responsive, font dễ đọc và dark mode có lưu tùy chọn.
@@ -63,7 +74,7 @@ Phần **Hỏi AI** và phòng ghi chú cũ vẫn là tùy chọn Gemini; không
 - File MP3 tiếng Việt riêng: Whisper chạy được nhưng có lỗi nhận dạng — hạn chế của base đã ghi rõ.
 - ElevenLabs: tạo giọng qua backend và phát trong UI; gọi lại cùng câu trả `cached: true` với 0 ký tự đầu vào mới.
 - 10 unit test backend: chuyển nguồn dự phòng, bỏ qua Whisper khi có phụ đề, file upload, hủy, lỗi tải, validation, cache TTS.
-- 7 test JS xử lý YouTube URL/SRT/VTT/timestamp.
+- 11 test JS xử lý YouTube URL/SRT/VTT/timestamp, tìm kiếm, bản dịch chỉnh sửa và xuất CSV.
 - Yêu cầu từ origin lạ và POST thiếu header ứng dụng đều trả 403.
 
 Chạy kiểm tra:

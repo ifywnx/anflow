@@ -1,7 +1,8 @@
 import {videoId,timeLabel,parseSubtitles,normalizeGenerated,cueAt,mergeRangeKeepingEdits,srt,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup,nextCaptionWindow,readApiResponse} from './video-core.mjs';
 const $=id=>document.getElementById(id),STORE='vietflow.videos.v1';
 const cloudPreview=location.hostname.endsWith('.vercel.app');
-const cloudMessage='YouTube không cho máy chủ Vercel đọc phụ đề ở video này. Video vẫn phát được; nếu cần, nhập SRT/VTT trong Tùy chỉnh nâng cao. Whisper và ElevenLabs chỉ chạy trên Mac.';
+const cloudMessage='YouTube có thể không cấp phụ đề qua Vercel; ANFLOW đang thử Supadata với một video kiểm chứng. Whisper và ElevenLabs vẫn chỉ có trên bản Mac.';
+const SUPADATA_TRIAL_VIDEO_ID='JGwWNGJdvx8';
 let library={};try{const stored=JSON.parse(localStorage.getItem(STORE)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))for(const [id,v] of Object.entries(stored)){if(/^[\w-]{11}$/.test(id)&&v&&Array.isArray(v.cues)&&typeof v.title==='string')library[id]={...v,cues:v.cues.filter(c=>Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&typeof c.original==='string'&&typeof c.translation==='string').sort((a,b)=>a.start-b.start),seen:Array.isArray(v.seen)?v.seen:[],ranges:Array.isArray(v.ranges)?v.ranges:[],chat:Array.isArray(v.chat)?v.chat:[],words:Array.isArray(v.words)?v.words.filter(w=>w&&typeof w.word==='string'&&typeof w.meaning==='string'&&Number.isFinite(w.start)).slice(0,500):[],bookmarks:Array.isArray(v.bookmarks)?v.bookmarks.filter(b=>b&&Number.isFinite(b.start)&&typeof b.label==='string').slice(0,300):[]};}}catch{}
 const VIEW_PREFS='vietflow.video-view.v1';
 const defaults={autoPrepare:true,followTranscript:true,captionSize:17,captionPlacement:'below',captionAlign:'center'};
@@ -182,7 +183,24 @@ function tick(){
 async function localRequest(path,body,signal){const r=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-VietFlow':'1'},...(body===undefined?{}:{body:JSON.stringify(body)}),...(signal?{signal}:{})});return readApiResponse(r);}
 let localJob=null;
 async function watchJob(jobId,v,controller){localJob=jobId;$('cancelLocal').hidden=false;try{while(!controller.signal.aborted){const data=await localRequest('/api/jobs/'+jobId);progress(data.stage);if(data.state==='done')return data.result;if(data.state==='error'||data.state==='cancelled')throw Error(data.error||'Đã hủy tác vụ.');await new Promise(r=>setTimeout(r,900));}await localRequest('/api/jobs/'+jobId+'/cancel',{});throw Error('Đã hủy tác vụ.');}finally{if(localJob===jobId)localJob=null;$('cancelLocal').hidden=true;}}
-async function generate(startOverride,automatic=false,media=null){if(!active)return message('Mở video trước để gắn phụ đề.');if(workController)return;const v=active;const start=startOverride??Math.floor((playerReady?player.getCurrentTime():0)/120)*120;if(!automatic)failedAutoWindows.delete(start);if(automatic)setAutoStatus('Đang tự lấy phụ đề '+timeLabel(start)+'–'+timeLabel(start+120)+'…','working');const controller=new AbortController();workController=controller;workVideo=v;setBusy(true);progress('Đang bắt đầu lấy phụ đề…');try{let response;if(media){if(cloudPreview)throw Error('Whisper tải lên chỉ có trong ứng dụng Mac.');const form=new FormData();form.append('file',media);form.append('video_id',v.id);form.append('start',start);form.append('duration',120);const r=await fetch('/api/upload',{method:'POST',headers:{'X-VietFlow':'1'},body:form,signal:controller.signal});response=await readApiResponse(r);}else response=await localRequest('/api/captions',{video_id:v.id,start,duration:120,force_whisper:$('forceWhisper').checked},controller.signal);
+async function trySupadataTrial(video,controller){
+  const source='/api/supadata-preview?video_id='+encodeURIComponent(video.id);
+  let data=await readApiResponse(await fetch(source,{signal:controller.signal}));
+  for(let attempt=0;data.pending&&attempt<10;attempt++){
+    if(controller.signal.aborted||active!==video)throw new DOMException('Cancelled','AbortError');
+    setAutoStatus('Supadata đang chuẩn bị phụ đề…','working');
+    await new Promise(r=>setTimeout(r,1400));
+    const job='/api/supadata-preview?video_id='+encodeURIComponent(video.id)+'&job_id='+encodeURIComponent(data.job_id);
+    data=await readApiResponse(await fetch(job,{signal:controller.signal}));
+  }
+  if(data.pending)throw Error('Supadata vẫn đang xử lý, hãy bấm Thử lại sau.');
+  if(!Array.isArray(data.cues)||!data.cues.length)throw Error('Supadata chưa trả về phụ đề cho video này.');
+  return data;
+}
+async function generate(startOverride,automatic=false,media=null){if(!active)return message('Mở video trước để gắn phụ đề.');if(workController)return;const v=active;const start=startOverride??Math.floor((playerReady?player.getCurrentTime():0)/120)*120;if(!automatic)failedAutoWindows.delete(start);if(automatic)setAutoStatus('Đang tự lấy phụ đề '+timeLabel(start)+'–'+timeLabel(start+120)+'…','working');const controller=new AbortController();workController=controller;workVideo=v;setBusy(true);progress('Đang bắt đầu lấy phụ đề…');try{let response;if(media){if(cloudPreview)throw Error('Whisper tải lên chỉ có trong ứng dụng Mac.');const form=new FormData();form.append('file',media);form.append('video_id',v.id);form.append('start',start);form.append('duration',120);const r=await fetch('/api/upload',{method:'POST',headers:{'X-VietFlow':'1'},body:form,signal:controller.signal});response=await readApiResponse(r);}else if(cloudPreview&&v.id===SUPADATA_TRIAL_VIDEO_ID){
+  if(automatic)setAutoStatus('Đang lấy phụ đề video qua Supadata (bản thử)…','working');
+  response=await trySupadataTrial(v,controller);
+}else response=await localRequest('/api/captions',{video_id:v.id,start,duration:120,force_whisper:$('forceWhisper').checked},controller.signal);
 const result=cloudPreview?response:await watchJob(response.job_id,v,controller);
 if(active!==v||controller.signal.aborted)return;v.cues=mergeRangeKeepingEdits(v.cues,result.cues,result.start,result.end);v.ranges.push([result.start,result.end]);v.source=result.source;save();history();renderTranscript();renderStudy();
 if(automatic)setAutoStatus('Đã lấy '+result.cues.length+' câu phụ đề · '+timeLabel(result.start)+'–'+timeLabel(result.end),'done');
@@ -244,7 +262,7 @@ if(cloudPreview){
   }
   $('voiceProvider').querySelector('[value="eleven"]')?.remove();
   setAutoStatus('Tự lấy phụ đề từ YouTube khi dán link. Nếu bị YouTube chặn, video vẫn phát.','ready');
-  $('connection').textContent='ANFLOW online';
+  $('connection').textContent='ANFLOW online · Supadata thử nghiệm';
 }
 $('openSettings').onclick=()=>$('settingsModal').showModal();$('saveVideoSettings').onclick=e=>{e.preventDefault();apiKey=$('videoApiKey').value.trim();model=$('videoModel').value.trim()||'gemini-2.5-flash';$('connection').textContent=apiKey?'Đã nhập Gemini key':'Chưa nhập API key';$('settingsModal').close();message(apiKey?'Đã giữ API key trong trang này. Khóa sẽ được kiểm tra khi gọi AI.':'Đã xóa API key khỏi bộ nhớ.');};
 $('subtitleModes').onclick=e=>{const button=e.target.closest('[data-mode]');if(!button)return;mode=button.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});showCaption(active?.cues[currentCue]);};

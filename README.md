@@ -47,6 +47,15 @@ Phần **Hỏi AI** và phòng ghi chú cũ vẫn là tùy chọn Gemini; không
 - Google nhận phần văn bản cần dịch. ElevenLabs nhận câu tiếng Việt khi tạo giọng. Không đồng bộ khóa lên web.
 - Có nút hủy tác vụ. Khi đang tải model, việc hủy được hoàn tất sau bước tải/nạp hiện tại.
 
+## Nâng cấp 1.4 — xem liên tục, phụ đề đồng bộ
+
+- **Tự chuẩn bị phụ đề** mặc định bật khi mở video; xử lý đoạn đang phát trước, chuẩn bị tiếp đoạn 2 phút kế tiếp khi chỉ còn tối đa 85 giây. Chỉ tải từng đoạn chưa có, không gọi hai tác vụ đồng thời; có thể tắt công tắc ở phần phụ đề.
+- Có thông báo trạng thái chuẩn bị. Nếu lỗi lấy/dịch phụ đề thì tự tạm dừng chế độ chuẩn bị để không gửi yêu cầu liên tục. Có thể bật lại thủ công.
+- Tự làm nổi bật và cuộn **bên trong danh sách lời thoại**, không kéo cả trang; tạm ngừng cuộn 8 giây khi người dùng đang đọc/cuộn thủ công. Có công tắc và nút quay lại câu hiện tại.
+- Cài đặt **cỡ chữ 12–28px**, căn trái/giữa, phụ đề dưới video hoặc nổi trên video. Tùy chọn lưu cục bộ và khôi phục khi mở lại.
+- Tôn trọng Reduce Motion của trình duyệt. Chưa thay đổi đồng bộ môi, mô hình Whisper hay chi phí sử dụng ElevenLabs.
+- Bộ kiểm thử bổ sung bao phủ bộ chọn đoạn phụ đề, ranh giới thời gian, tránh tải lặp và trường hợp video chưa sẵn sàng.
+
 ## Nâng cấp 1.3 — học trực tiếp từ video
 
 - Tìm kiếm lời thoại theo cả bản gốc và tiếng Việt, không phân biệt dấu.

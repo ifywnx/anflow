@@ -68,3 +68,19 @@ export function readStudyBackup(value,expectedVideoId){
   }
   return {words,bookmarks,captions};
 }
+
+/**
+ * Decide which 2-minute transcript interval to prepare, without issuing duplicate
+ * work or scheduling beyond the end of a video. Prioritize the active interval.
+ * Pure function for tests and use with any transcript provider.
+ */
+export function nextCaptionWindow(seconds,duration,ranges,{windowSize=120,leadSeconds=85}={}){
+  if(!Number.isFinite(seconds)||!Number.isFinite(duration)||duration<=0||windowSize<=0)return null;
+  const at=Math.max(0,Math.min(seconds,duration-0.001));
+  const start=Math.floor(at/windowSize)*windowSize;
+  const covered=s=>Array.isArray(ranges)&&ranges.some(r=>Array.isArray(r)&&Number.isFinite(r[0])&&Number.isFinite(r[1])&&r[0]<=s&&r[1]>=Math.min(duration,s+windowSize)-0.001);
+  if(!covered(start))return start;
+  const upcoming=start+windowSize;
+  if(upcoming<duration&&upcoming-at<=leadSeconds&&!covered(upcoming))return upcoming;
+  return null;
+}

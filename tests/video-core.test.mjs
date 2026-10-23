@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {videoId,timestamp,parseSubtitles,normalizeGenerated,cueAt,mergeRange,mergeRangeKeepingEdits,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup,srt,timeLabel} from '../dist/video-core.mjs';
+import {videoId,timestamp,parseSubtitles,normalizeGenerated,cueAt,mergeRange,mergeRangeKeepingEdits,studyKey,cueMatchesSearch,vocabularyCsv,readStudyBackup,nextCaptionWindow,srt,timeLabel} from '../dist/video-core.mjs';
 test('YouTube links: exact hosts, no spoofing or injected schemes',()=>{for(const url of ['https://youtu.be/lfmg-EJ8gm4?si=x','https://www.youtube.com/watch?v=lfmg-EJ8gm4&t=31','https://m.youtube.com/shorts/lfmg-EJ8gm4','https://youtube.com/live/lfmg-EJ8gm4'])assert.equal(videoId(url),'lfmg-EJ8gm4');for(const url of ['https://youtube.com.attacker.test/watch?v=lfmg-EJ8gm4','javascript:alert(1)','https://example.com/lfmg-EJ8gm4','https://youtube.com/watch?v=bad'])assert.equal(videoId(url),null);});
 test('SRT BOM, CRLF, multiline and markup handled',()=>{const cues=parseSubtitles('\uFEFF1\r\n00:00:01,250 --> 00:00:04,000\r\nHello <i>world</i>\r\nSecond line\r\n\r\n2\r\n01:02:03,000 --> 01:02:05,500\r\nLong video');assert.equal(cues[0].start,1.25);assert.equal(cues[0].original,'Hello world\nSecond line');assert.equal(cues[1].start,3723);assert.equal(timeLabel(3723),'1:02:03');});
 test('WebVTT settings and NOTE blocks',()=>{const cues=parseSubtitles('WEBVTT\n\nNOTE note\nignore\n\ncue-a\n00:09.000 --> 00:15.000 align:start\nHello &amp; welcome');assert.deepEqual(cues,[{start:9,end:15,original:'Hello & welcome',translation:''}]);assert.throws(()=>parseSubtitles('no timing'));});
@@ -53,4 +53,29 @@ test('Backup import rejects poisoned or malformed captions without corrupting sa
   const data=readStudyBackup({version:1,videoId:'4ycKrWTvzNY',words:[{word:'AI',meaning:'Trí tuệ nhân tạo',start:0}],bookmarks:[],captions:[{start:0,end:-2,original:'Bad',translation:''}]},'4ycKrWTvzNY');
   assert.equal(data.captions.length,0);assert.equal(data.words.length,1);
   assert.throws(()=>readStudyBackup('broken json','4ycKrWTvzNY'));
+});
+
+test('Continuous subtitle scheduler prioritizes current missing segment',()=>{
+  assert.equal(nextCaptionWindow(0,465,[]),0);
+  assert.equal(nextCaptionWindow(119,465,[[0,120]]),120);
+  assert.equal(nextCaptionWindow(245,465,[[0,120],[120,240]]),240);
+});
+test('Prefetch starts with 85 seconds lead and never repeats prepared windows',()=>{
+  assert.equal(nextCaptionWindow(30,465,[[0,120]]),null);
+  assert.equal(nextCaptionWindow(35,465,[[0,120]]),120);
+  assert.equal(nextCaptionWindow(84,465,[[0,120],[120,240]]),null);
+  assert.equal(nextCaptionWindow(158,465,[[0,120],[120,240]]),null);
+  assert.equal(nextCaptionWindow(159,465,[[0,120],[120,240]]),240);
+});
+test('Prefetch bounds last partial window and invalid playback values',()=>{
+  assert.equal(nextCaptionWindow(115,119,[[0,119]]),null);
+  assert.equal(nextCaptionWindow(118,131,[[0,120]]),120);
+  assert.equal(nextCaptionWindow(120,131,[[0,120],[120,131]]),null);
+  assert.equal(nextCaptionWindow(NaN,600,[]),null);
+  assert.equal(nextCaptionWindow(10,0,[]),null);
+});
+test('Playback scheduler handles window seeking and does not request past the video end',()=>{
+  assert.equal(nextCaptionWindow(395,400,[[0,120],[120,240],[240,360]]),360);
+  assert.equal(nextCaptionWindow(399,400,[[0,120],[120,240],[240,360],[360,400]]),null);
+  assert.equal(nextCaptionWindow(-4,400,[]),0);
 });

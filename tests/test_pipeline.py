@@ -16,7 +16,7 @@ class Pipeline(unittest.TestCase):
    self.assertEqual(j['state'],'done');self.assertEqual(j['result']['source'],'youtube');whisper.assert_not_called()
  def test_empty_youtube_captions_retry_ytdlp(self):
   j=self.job()
-  with patch.object(s,'transcript_api',return_value=([],'en')),patch.object(s,'ytdlp_captions',return_value=([s.cue('hello backup',0,2)],'en')) as fallback,patch.object(s,'transcribe_file') as whisper,patch.object(s,'translate_cues',return_value=[]):
+  with patch.object(s,'transcript_api',side_effect=RuntimeError('Không có phụ đề trong đoạn này.')),patch.object(s,'ytdlp_captions',return_value=([s.cue('hello backup',0,2)],'en')) as fallback,patch.object(s,'transcribe_file') as whisper,patch.object(s,'translate_cues',return_value=[]):
    s.execute(j,s.JobInput(video_id='4ycKrWTvzNY'))
    self.assertEqual(j['state'],'done')
    self.assertEqual(j['result']['source'],'yt-dlp')

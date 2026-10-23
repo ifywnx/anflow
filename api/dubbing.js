@@ -17,7 +17,7 @@ export function checkDubInput(body){
   if(!body||body.video_id!==TRIAL_ID)return 'Bản thử ElevenLabs chỉ hỗ trợ video Ed Sheeran.';
   if(typeof body.text!=='string')return 'Chưa có bản dịch tiếng Việt.';
   const text=body.text.trim();
-  if(!text||text.length>220||/[\\u0000-\\u001F]/.test(text))return 'Mỗi câu lồng tiếng phải có từ 1 đến 220 ký tự.';
+  if(!text||text.length>220||/[\x00-\x1F]/.test(text))return 'Mỗi câu lồng tiếng phải có từ 1 đến 220 ký tự.';
   return '';
 }
 export default async function handler(req,res){

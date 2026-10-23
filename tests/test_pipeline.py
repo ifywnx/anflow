@@ -14,6 +14,42 @@ class Pipeline(unittest.TestCase):
   with patch.object(s,'transcript_api',return_value=([s.cue('hello',0,2)],'en')),patch.object(s,'translate_cues',return_value=[]),patch.object(s,'transcribe_file') as whisper:
    s.execute(j,s.JobInput(video_id='4ycKrWTvzNY'))
    self.assertEqual(j['state'],'done');self.assertEqual(j['result']['source'],'youtube');whisper.assert_not_called()
+ def test_empty_youtube_captions_retry_ytdlp(self):
+  j=self.job()
+  with patch.object(s,'transcript_api',return_value=([],'en')),patch.object(s,'ytdlp_captions',return_value=([s.cue('hello backup',0,2)],'en')) as fallback,patch.object(s,'transcribe_file') as whisper,patch.object(s,'translate_cues',return_value=[]):
+   s.execute(j,s.JobInput(video_id='4ycKrWTvzNY'))
+   self.assertEqual(j['state'],'done')
+   self.assertEqual(j['result']['source'],'yt-dlp')
+   fallback.assert_called_once()
+   whisper.assert_not_called()
+ def test_empty_all_sources_retry_whisper(self):
+  j=self.job()
+  def fake_download(args,job,timeout):
+   target=Path(args[args.index('-o')+1].replace('%(ext)s','m4a'))
+   target.write_bytes(b'fixture')
+  with patch.object(s,'transcript_api',return_value=([],'en')),patch.object(s,'ytdlp_captions',return_value=([],'en')),patch.object(s,'ffmpeg',return_value='/tmp/ffmpeg'),patch.object(s,'run_process',side_effect=fake_download),patch.object(s,'transcribe_file',return_value=([s.cue('fallback',0,2)],'en')),patch.object(s,'translate_cues',return_value=[]):
+   s.execute(j,s.JobInput(video_id='4ycKrWTvzNY'))
+   self.assertEqual(j['state'],'done')
+   self.assertEqual(j['result']['source'],'whisper')
+ def test_force_whisper_cache_is_separate_from_normal_mode(self):
+  def fake_download(args,job,timeout):
+   target=Path(args[args.index('-o')+1].replace('%(ext)s','m4a'))
+   target.write_bytes(b'fixture')
+  j=self.job()
+  with patch.object(s,'ffmpeg',return_value='/tmp/ffmpeg'),patch.object(s,'run_process',side_effect=fake_download),patch.object(s,'transcribe_file',return_value=([s.cue('whisper result',0,2)],'en')) as whisper,patch.object(s,'translate_cues',return_value=[]):
+   s.execute(j,s.JobInput(video_id='4ycKrWTvzNY',force_whisper=True))
+   self.assertEqual(j['result']['source'],'whisper')
+   self.assertEqual(whisper.call_count,1)
+  standard=self.job()
+  with patch.object(s,'transcript_api',return_value=([s.cue('youtube captions',0,2)],'en')) as original,patch.object(s,'translate_cues',return_value=[]):
+   s.execute(standard,s.JobInput(video_id='4ycKrWTvzNY'))
+   self.assertEqual(standard['result']['source'],'youtube')
+   original.assert_called_once()
+  repeat=self.job()
+  with patch.object(s,'transcribe_file') as whisper:
+   s.execute(repeat,s.JobInput(video_id='4ycKrWTvzNY',force_whisper=True))
+   self.assertEqual(repeat['result']['source'],'whisper')
+   whisper.assert_not_called()
  def test_missing_captions_switches_to_whisper(self):
   j=self.job()
   def fake_download(args,job,timeout):

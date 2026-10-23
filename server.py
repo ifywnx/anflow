@@ -77,6 +77,7 @@ def transcript_api(video_id,start,end,j):
             # Only use aligned cues. Do not pair unrelated lines by array index.
             match=next((t for t in translated if abs(t.start-c['start'])<0.15),None)
             if match:c['translation']=clean(match.text)
+    if not cues:raise RuntimeError('Không có phụ đề trong đoạn này; thử nguồn khác.')
     return cues,preferred.language_code
 
 class Quiet:
@@ -120,6 +121,7 @@ def ytdlp_captions(video_id,start,end,j,folder):
         text=''.join(x.get('utf8','') for x in event.get('segs',[]));s=event.get('tStartMs',0)/1000
         if text.strip():cues.append(cue(text,s,s+event.get('dDurationMs',2000)/1000))
     cues=pick_range(cues,start,end)
+    if not cues:raise RuntimeError('Nguồn yt-dlp không có phụ đề ở đoạn được chọn.')
     language='vi' if '.vi.' in file.name else 'en'
     if language=='vi':
         for c in cues:c['translation']=c['original']
@@ -172,8 +174,8 @@ def execute(j,spec,upload=None):
     try:
         j['state']='running'
         cache=DATA/'results';cache.mkdir(exist_ok=True)
-        cachefile=cache/(hashlib.sha256(f'{spec.video_id}:{start}:{end}'.encode()).hexdigest()+'.json')
-        if not upload and not spec.force_whisper and cachefile.exists():
+        cachefile=cache/(hashlib.sha256(f'{spec.video_id}:{start}:{end}:{"whisper" if spec.force_whisper else "auto"}'.encode()).hexdigest()+'.json')
+        if not upload and cachefile.exists():
             cached=json.loads(cachefile.read_text())
             if any(not c['translation'] for c in cached['cues']):
                 cached['warnings']=translate_cues(cached['cues'],cached['language'],j)
@@ -189,8 +191,8 @@ def execute(j,spec,upload=None):
                 valid(j);failures.append('Nguồn youtube-transcript-api không khả dụng ('+type(e).__name__+').')
                 try:result,language=ytdlp_captions(spec.video_id,start,end,j,folder);source='yt-dlp'
                 except Exception as e:valid(j);failures.append('Nguồn phụ đề yt-dlp không khả dụng.')
-        if result is None:
-            status(j,'Không lấy được phụ đề; đang tải đoạn âm thanh để chạy Whisper…')
+        if not result:
+            status(j,'Không có phụ đề phù hợp; đang tải đoạn âm thanh để chạy Whisper…')
             ff=ffmpeg()
             run_process([sys.executable,'-m','yt_dlp','--no-playlist','--no-warnings','--quiet','--socket-timeout','20','--retries','0','-f','bestaudio/best','--ffmpeg-location',str(Path(ff).parent),'--download-sections',f'*{start}-{end}','-o',str(folder/'source.%(ext)s'),'https://www.youtube.com/watch?v='+spec.video_id],j,240)
             files=list(folder.glob('source.*'))
@@ -198,6 +200,8 @@ def execute(j,spec,upload=None):
             result,language=transcribe_file(files[0],start,spec.duration,j,folder,True);source='whisper'
         valid(j)
         warnings=translate_cues(result,language,j)
+        if not result:
+            warnings.append('Whisper không phát hiện lời nói trong đoạn này; thử đoạn khác hoặc nhập phụ đề.')
         response={'cues':result,'source':source,'language':language,'start':start,'end':end,'warnings':warnings,'fallbacks':failures}
         if not upload:cachefile.write_text(json.dumps(response,ensure_ascii=False))
         j.update(state='done',stage='Hoàn tất.',result=response)

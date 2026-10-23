@@ -47,13 +47,22 @@ Phần **Hỏi AI** và phòng ghi chú cũ vẫn là tùy chọn Gemini; không
 - Google nhận phần văn bản cần dịch. ElevenLabs nhận câu tiếng Việt khi tạo giọng. Không đồng bộ khóa lên web.
 - Có nút hủy tác vụ. Khi đang tải model, việc hủy được hoàn tất sau bước tải/nạp hiện tại.
 
+## Nâng cấp 1.2 — giao diện và độ tin cậy
+
+- Giao diện video và ghi chú dùng chung thiết kế mới, responsive, font dễ đọc và dark mode có lưu tùy chọn.
+- Nút **Tập trung** tại màn hình video (phím F); nhấn Ctrl/Cmd + K để tập trung vào ô dán link.
+- Sửa fallback: phụ đề YouTube hoặc yt-dlp rỗng trong khoảng được chọn tiếp tục sang nguồn tiếp theo, cuối cùng là Whisper.
+- Cache phụ đề được tách theo chế độ Whisper trực tiếp và chế độ lấy nguồn tự động; có thể phát lại từ cache.
+- Thêm unit test cho nguồn phụ đề rỗng và cache; kiểm thử tự động với GitHub Actions.
+- Không thay đổi cách lưu API key hay đưa nội dung lên cloud; ứng dụng vẫn chỉ phục vụ tại 127.0.0.1.
+
 ## Kiểm tra đã thực hiện
 
 - Video 4ycKrWTvzNY, dài khoảng 7 phút 38 giây: lấy 34 câu trong 2 phút đầu, dịch 34/34 không cần Gemini.
 - Buộc chạy Whisper trên 30 giây đầu cùng video: tải audio thành công, chép 5 đoạn tiếng Anh và dịch đủ sang Việt.
 - File MP3 tiếng Việt riêng: Whisper chạy được nhưng có lỗi nhận dạng — hạn chế của base đã ghi rõ.
 - ElevenLabs: tạo giọng qua backend và phát trong UI; gọi lại cùng câu trả `cached: true` với 0 ký tự đầu vào mới.
-- 7 unit test backend: chuyển nguồn dự phòng, bỏ qua Whisper khi có phụ đề, file upload, hủy, lỗi tải, validation, cache TTS.
+- 10 unit test backend: chuyển nguồn dự phòng, bỏ qua Whisper khi có phụ đề, file upload, hủy, lỗi tải, validation, cache TTS.
 - 7 test JS xử lý YouTube URL/SRT/VTT/timestamp.
 - Yêu cầu từ origin lạ và POST thiếu header ứng dụng đều trả 403.
 
